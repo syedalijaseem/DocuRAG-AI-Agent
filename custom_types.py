@@ -1,8 +1,9 @@
 from pydantic import BaseModel
+from typing import Optional
 
 class RAGChunkAndSrc(BaseModel):
-    chunks: list[str]
-    source_id: str = None
+    chunks: list[dict]  
+    source_id: Optional[str] = None
 
 class RAGUpsertResult(BaseModel):
     ingested: int
