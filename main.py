@@ -22,7 +22,15 @@ inngest_client = inngest.Inngest(
 
 @inngest_client.create_function(
     fn_id="RAG: Ingest PDF",
-    trigger=inngest.TriggerEvent(event="rag/ingest_pdf")
+    trigger=inngest.TriggerEvent(event="rag/ingest_pdf"),
+    throttle=inngest.Throttle(
+        limit=1, count=2, period=datetime.timedelta(minutes=1)
+    ),
+    rate_limit=inngest.RateLimit(
+        limit=1,
+        period=datetime.timedelta(hours=4),
+        key="event.data.source_id",
+    ),
 )
 async def rag_ingest_pdf(ctx: inngest.Context):
     def _load(ctx: inngest.Context) -> RAGChunkAndSrc:
@@ -69,7 +77,7 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
         "Use the following context to answer the question.\n\n"
         f"Context:\n{context_block}\n\n"
         f"Question: {question}\n"
-        "Answer concisely using the context above."
+        "Answer in detail using the context above. Focus on key insights."
     )
 
     adapter = ai.openai.Adapter(
@@ -82,7 +90,7 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
         "llm-answer",
         adapter=adapter,
         body={
-            "max_tokens": 1024,
+            "max_tokens": 2056,
             "temperature": 0.2,
             "messages": [
                 {"role": "system", "content": "You answer questions using only the provided context."},
