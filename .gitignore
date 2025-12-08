@@ -36,3 +36,5 @@ htmlcov/
 
 # Qdrant local storage
 qdrant_storage/
+
+uploads/
