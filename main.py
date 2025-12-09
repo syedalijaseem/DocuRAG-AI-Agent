@@ -169,6 +169,21 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     ).model_dump()
 
 
-app = FastAPI()
+app = FastAPI(title="DocuRAG API")
 
+# CORS for React frontend
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include API routes
+from api_routes import router as api_router
+app.include_router(api_router)
+
+# Inngest integration
 inngest.fast_api.serve(app, inngest_client, [rag_ingest_pdf, rag_query_pdf_ai])
