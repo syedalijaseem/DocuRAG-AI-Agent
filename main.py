@@ -7,7 +7,7 @@ import uuid
 import os
 import datetime
 from data_loader import load_and_chunk_pdf, embed_texts
-from vector_db import QdrantStorage
+from vector_db import MongoDBStorage
 from custom_types import RAGQueryResult, RAGSearchResult, RAGUpsertResult, RAGChunkAndSrc
 
 
@@ -49,6 +49,7 @@ async def rag_ingest_pdf(ctx: inngest.Context):
     def _upsert(chunks_and_src: RAGChunkAndSrc) -> RAGUpsertResult:
         source_id = chunks_and_src.source_id
         chunks = chunks_and_src.chunks
+        workspace_id = ctx.event.data.get("workspace_id")  # Get workspace_id from event
 
         texts = [c["text"] for c in chunks]
         vecs = embed_texts(texts)
@@ -59,7 +60,7 @@ async def rag_ingest_pdf(ctx: inngest.Context):
             for i in range(len(chunks))
         ]
 
-        QdrantStorage().upsert(ids, vecs, payloads)
+        MongoDBStorage().upsert(ids, vecs, payloads, workspace_id=workspace_id)
         return RAGUpsertResult(ingested=len(chunks))
 
     chunks_and_src = await ctx.step.run(
@@ -75,33 +76,26 @@ async def rag_ingest_pdf(ctx: inngest.Context):
     trigger=inngest.TriggerEvent(event="rag/query_pdf_ai")
 )
 async def rag_query_pdf_ai(ctx: inngest.Context):
-    def _search(question: str, top_k: int = 5) -> dict:
+    def _search(question: str, top_k: int = 5, workspace_id: str = None) -> dict:
         query_vec = embed_texts([question])[0]
-        store = QdrantStorage()
-        results = store.client.search(
-            collection_name=store.collection,
-            query_vector=query_vec,
-            with_payload=True,
-            limit=top_k
-        )
-        contexts, sources, scores = [], [], []
-        for r in results:
-            payload = getattr(r, "payload", {}) or {}
-            text = payload.get("text", "")
-            source = payload.get("source", "")
-            page = payload.get("page", "?")
-            if text:
-                contexts.append(f"{text} [source: {source}, page {page}]")
-                sources.append(f"{source}, page {page}")
-                scores.append(r.score)
+        store = MongoDBStorage()
+        # Use pre-filtering by workspace for O(1) scoped lookup
+        result = store.search(query_vec, top_k=top_k, workspace_id=workspace_id)
+        
+        contexts = []
+        for i, text in enumerate(result["contexts"]):
+            source = result["sources"][i] if i < len(result["sources"]) else ""
+            contexts.append(f"{text} [source: {source}]")
+        
         return {
             "contexts": contexts,
-            "sources": sources,
-            "scores": scores
+            "sources": result["sources"],
+            "scores": result.get("scores", [])
         }
 
     question = ctx.event.data["question"]
     top_k = int(ctx.event.data.get("top_k", 5))
+    workspace_id = ctx.event.data.get("workspace_id")  # Filter by workspace
 
     # Support chat reset
     history = ctx.event.data.get("history", [])
@@ -110,7 +104,7 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
 
     result = await ctx.step.run(
         "embed-and-search", 
-        lambda: _search(question, top_k)
+        lambda: _search(question, top_k, workspace_id)
     )
     
     contexts = result["contexts"]
