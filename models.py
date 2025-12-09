@@ -7,7 +7,7 @@ This module provides type-safe models for:
 - Internal chunking/embedding data
 """
 from pydantic import BaseModel, Field, field_validator
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from enum import Enum
 import uuid
@@ -35,7 +35,7 @@ class Workspace(BaseModel):
     """A workspace containing documents and chat sessions."""
     id: str = Field(default_factory=lambda: generate_id("ws_"))
     name: str = "Default Workspace"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Document(BaseModel):
@@ -44,7 +44,7 @@ class Document(BaseModel):
     workspace_id: str
     filename: str
     source_id: str  # Used for vector search filtering
-    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+    uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ChatSession(BaseModel):
@@ -52,7 +52,7 @@ class ChatSession(BaseModel):
     id: str = Field(default_factory=lambda: generate_id("sess_"))
     workspace_id: str
     title: str = "New Chat"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Message(BaseModel):
@@ -61,7 +61,7 @@ class Message(BaseModel):
     session_id: str
     role: MessageRole
     content: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     sources: list[str] = Field(default_factory=list)
 
 
@@ -79,6 +79,9 @@ class IngestPdfEventData(BaseModel):
         # Security: Reject null bytes (path manipulation attack)
         if '\x00' in v:
             raise ValueError('pdf_path cannot contain null bytes')
+        # Security: Reject path traversal attempts
+        if '..' in v:
+            raise ValueError('pdf_path cannot contain path traversal sequences')
         if not v.endswith('.pdf'):
             raise ValueError('pdf_path must end with .pdf')
         return v

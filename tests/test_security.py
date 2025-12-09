@@ -28,6 +28,14 @@ class TestInputSanitization:
                 source_id="passwd"
             )
     
+    def test_pdf_path_traversal_with_pdf_extension(self):
+        """Path traversal with .pdf extension should still be rejected."""
+        with pytest.raises(ValidationError, match="path traversal"):
+            IngestPdfEventData(
+                pdf_path="../../../uploads/malicious.pdf",
+                source_id="malicious.pdf"
+            )
+    
     def test_pdf_path_with_null_bytes(self):
         """Null bytes in paths should be rejected (path manipulation attack)."""
         with pytest.raises(ValidationError, match="null bytes"):
