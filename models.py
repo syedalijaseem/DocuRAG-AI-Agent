@@ -76,6 +76,9 @@ class IngestPdfEventData(BaseModel):
     @field_validator('pdf_path')
     @classmethod
     def validate_pdf_path(cls, v: str) -> str:
+        # Security: Reject null bytes (path manipulation attack)
+        if '\x00' in v:
+            raise ValueError('pdf_path cannot contain null bytes')
         if not v.endswith('.pdf'):
             raise ValueError('pdf_path must end with .pdf')
         return v
