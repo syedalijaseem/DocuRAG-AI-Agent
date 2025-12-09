@@ -7,8 +7,16 @@ import uuid
 import os
 import datetime
 from data_loader import load_and_chunk_pdf, embed_texts
-from vector_db import QdrantStorage
-from custom_types import RAGQueryResult, RAGSearchResult, RAGUpsertResult, RAGChunkAndSrc
+from vector_db import MongoDBStorage
+from models import (
+    IngestPdfEventData,
+    QueryPdfEventData,
+    RAGChunkAndSrc,
+    RAGUpsertResult,
+    SearchResult,
+    QueryResult,
+    ChunkWithPage,
+)
 
 
 load_dotenv()
@@ -33,37 +41,37 @@ inngest_client = inngest.Inngest(
     ),
 )
 async def rag_ingest_pdf(ctx: inngest.Context):
-    def _load(ctx: inngest.Context) -> RAGChunkAndSrc:
-        pdf_path = ctx.event.data["pdf_path"]
-        source_id = ctx.event.data.get("source_id", pdf_path)
-
+    # Validate event data with Pydantic
+    event_data = IngestPdfEventData(**ctx.event.data)
+    
+    def _load() -> RAGChunkAndSrc:
         # load_and_chunk_pdf should ideally also return page numbers
-        chunks = load_and_chunk_pdf(pdf_path)
+        chunks = load_and_chunk_pdf(event_data.pdf_path)
 
         # Attach page info (for now assume sequential pages for each chunk)
         chunk_with_page = [
-            {"text": chunk, "page": i + 1} for i, chunk in enumerate(chunks)
+            ChunkWithPage(text=chunk, page=i + 1) for i, chunk in enumerate(chunks)
         ]
-        return RAGChunkAndSrc(chunks=chunk_with_page, source_id=source_id)
+        return RAGChunkAndSrc(chunks=chunk_with_page, source_id=event_data.source_id)
 
     def _upsert(chunks_and_src: RAGChunkAndSrc) -> RAGUpsertResult:
         source_id = chunks_and_src.source_id
         chunks = chunks_and_src.chunks
 
-        texts = [c["text"] for c in chunks]
+        texts = [c.text for c in chunks]
         vecs = embed_texts(texts)
 
         ids = [str(uuid.uuid5(uuid.NAMESPACE_URL, f"{source_id}:{i}")) for i in range(len(chunks))]
         payloads = [
-            {"source": source_id, "text": chunks[i]["text"], "page": chunks[i]["page"]}
+            {"source": source_id, "text": chunks[i].text, "page": chunks[i].page}
             for i in range(len(chunks))
         ]
 
-        QdrantStorage().upsert(ids, vecs, payloads)
-        return RAGUpsertResult(ingested=len(chunks))
+        MongoDBStorage().upsert(ids, vecs, payloads, workspace_id=event_data.workspace_id)
+        return RAGUpsertResult(ingested=len(chunks), workspace_id=event_data.workspace_id)
 
     chunks_and_src = await ctx.step.run(
-        "load-and-chunk", lambda: _load(ctx), output_type=RAGChunkAndSrc
+        "load-and-chunk", _load, output_type=RAGChunkAndSrc
     )
     ingested = await ctx.step.run(
         "embed-and-upsert", lambda: _upsert(chunks_and_src), output_type=RAGUpsertResult
@@ -75,53 +83,50 @@ async def rag_ingest_pdf(ctx: inngest.Context):
     trigger=inngest.TriggerEvent(event="rag/query_pdf_ai")
 )
 async def rag_query_pdf_ai(ctx: inngest.Context):
-    def _search(question: str, top_k: int = 5) -> dict:
-        query_vec = embed_texts([question])[0]
-        store = QdrantStorage()
-        results = store.client.search(
-            collection_name=store.collection,
-            query_vector=query_vec,
-            with_payload=True,
-            limit=top_k
+    # Validate event data with Pydantic
+    event_data = QueryPdfEventData(**ctx.event.data)
+    
+    def _search() -> SearchResult:
+        query_vec = embed_texts([event_data.question])[0]
+        store = MongoDBStorage()
+        # Use pre-filtering by workspace for O(1) scoped lookup
+        result = store.search(query_vec, top_k=event_data.top_k, workspace_id=event_data.workspace_id)
+        
+        contexts = []
+        for i, text in enumerate(result["contexts"]):
+            source = result["sources"][i] if i < len(result["sources"]) else ""
+            contexts.append(f"{text} [source: {source}]")
+        
+        return SearchResult(
+            contexts=contexts,
+            sources=result["sources"],
+            scores=result.get("scores", [])
         )
-        contexts, sources, scores = [], [], []
-        for r in results:
-            payload = getattr(r, "payload", {}) or {}
-            text = payload.get("text", "")
-            source = payload.get("source", "")
-            page = payload.get("page", "?")
-            if text:
-                contexts.append(f"{text} [source: {source}, page {page}]")
-                sources.append(f"{source}, page {page}")
-                scores.append(r.score)
-        return {
-            "contexts": contexts,
-            "sources": sources,
-            "scores": scores
-        }
-
-    question = ctx.event.data["question"]
-    top_k = int(ctx.event.data.get("top_k", 5))
 
     # Support chat reset
-    history = ctx.event.data.get("history", [])
-    if question.strip().lower() in ("reset", "clear", "new chat"):
-        return {"answer": "🔄 Chat history cleared.", "sources": [], "num_contexts": 0, "history": []}
+    if event_data.question.lower() in ("reset", "clear", "new chat"):
+        return QueryResult(
+            answer="🔄 Chat history cleared.",
+            sources=[],
+            num_contexts=0,
+            history=[]
+        ).model_dump()
 
     result = await ctx.step.run(
         "embed-and-search", 
-        lambda: _search(question, top_k)
+        _search,
+        output_type=SearchResult
     )
     
-    contexts = result["contexts"]
-    sources = result["sources"]
-    scores = result["scores"]
+    contexts = result.contexts
+    sources = result.sources
+    scores = result.scores
 
     context_block = "\n\n".join(f"- {c}" for c in contexts)
     user_content = (
         "Use the following context to answer the question.\n\n"
         f"Context:\n{context_block}\n\n"
-        f"Question: {question}\n"
+        f"Question: {event_data.question}\n"
         "Answer in detail using the context above. Cite sources inline when relevant."
     )
 
@@ -132,7 +137,7 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     )
 
     messages = [{"role": "system", "content": "You answer using only the provided context."}]
-    messages.extend(history)
+    messages.extend(event_data.history)
     messages.append({"role": "user", "content": user_content})
 
     res = await ctx.step.ai.infer(
@@ -148,20 +153,20 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     answer = res["choices"][0]["message"]["content"].strip()
 
     # Update history
-    history.append({"role": "user", "content": question})
+    history = list(event_data.history)
+    history.append({"role": "user", "content": event_data.question})
     history.append({"role": "assistant", "content": answer})
 
     # Compute analytics
     avg_conf = round(sum(scores)/len(scores), 3) if scores else 0.0
 
-    return RAGQueryResult(
+    return QueryResult(
         answer=answer,
         sources=sources,
-        num_contexts=len(contexts)
-    ).model_dump() | {
-        "history": history,
-        "avg_confidence": avg_conf
-    }
+        num_contexts=len(contexts),
+        history=history,
+        avg_confidence=avg_conf
+    ).model_dump()
 
 
 app = FastAPI()
