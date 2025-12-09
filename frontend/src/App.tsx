@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import type { Workspace, ChatSession, Message, Document } from "./types";
 import * as api from "./api";
-import "./App.css";
+import { Sidebar } from "./components/Sidebar";
+import { ChatArea } from "./components/ChatArea";
+import "./index.css";
 
 function App() {
   // State
@@ -15,7 +17,6 @@ function App() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Initialize workspace on mount
   useEffect(() => {
@@ -36,11 +37,6 @@ function App() {
       loadMessages();
     }
   }, [currentSession]);
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   async function initWorkspace() {
     try {
@@ -122,18 +118,12 @@ function App() {
     setUploading(true);
     try {
       const result = await api.uploadDocument(workspace.id, file);
-
-      // Trigger ingestion via Inngest
       const eventId = await api.sendIngestEvent(
         result.path,
         result.filename,
         workspace.id
       );
-
-      // Wait for ingestion
       await api.waitForRunOutput(eventId);
-
-      // Reload documents
       await loadDocuments();
     } catch (error) {
       console.error("Upload failed:", error);
@@ -161,16 +151,11 @@ function App() {
     setMessages([...messages, tempUserMsg]);
 
     try {
-      // Save user message
       await api.saveMessage(currentSession.id, "user", userMessage);
-
-      // Build history from messages
       const history = messages.map((m) => ({
         role: m.role,
         content: m.content,
       }));
-
-      // Send query via Inngest
       const eventId = await api.sendQueryEvent(
         userMessage,
         workspace.id,
@@ -183,11 +168,9 @@ function App() {
         (result as { answer?: string }).answer || "No answer received";
       const sources = (result as { sources?: string[] }).sources || [];
 
-      // Save assistant message
       await api.saveMessage(currentSession.id, "assistant", answer, sources);
-
-      // Reload messages
       await loadMessages();
+      await loadSessions(); // Reload to get updated title
     } catch (error) {
       console.error("Query failed:", error);
     } finally {
@@ -196,128 +179,27 @@ function App() {
   }
 
   return (
-    <div className="app">
-      {/* Sidebar */}
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <h1>📚 DocuRAG</h1>
-        </div>
-
-        <button className="new-chat-btn" onClick={handleNewChat}>
-          + New Chat
-        </button>
-
-        {/* Documents Section */}
-        <div className="sidebar-section">
-          <h3>📄 Documents</h3>
-          <label className="upload-btn">
-            {uploading ? "Uploading..." : "+ Upload PDF"}
-            <input
-              type="file"
-              accept=".pdf"
-              onChange={handleUpload}
-              disabled={uploading}
-              hidden
-            />
-          </label>
-          <ul className="doc-list">
-            {documents.map((doc) => (
-              <li key={doc.source} className="doc-item">
-                {doc.source} ({doc.chunks} chunks)
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Sessions Section */}
-        <div className="sidebar-section">
-          <h3>💬 Chats</h3>
-          <ul className="session-list">
-            {sessions.map((session) => (
-              <li
-                key={session.id}
-                className={`session-item ${
-                  currentSession?.id === session.id ? "active" : ""
-                }`}
-                onClick={() => handleSelectSession(session)}
-              >
-                <span className="session-title">{session.title}</span>
-                <button
-                  className="delete-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteSession(session.id);
-                  }}
-                >
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </aside>
-
-      {/* Main Chat Area */}
-      <main className="chat-area">
-        {currentSession ? (
-          <>
-            <div className="messages">
-              {messages.map((msg) => (
-                <div key={msg.id} className={`message ${msg.role}`}>
-                  <div className="message-content">{msg.content}</div>
-                  {msg.sources.length > 0 && (
-                    <div className="message-sources">
-                      <details>
-                        <summary>📚 Sources ({msg.sources.length})</summary>
-                        <ul>
-                          {msg.sources.map((src, i) => (
-                            <li key={i}>{src}</li>
-                          ))}
-                        </ul>
-                      </details>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {loading && (
-                <div className="message assistant">
-                  <div className="message-content loading">Thinking...</div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            <div className="input-area">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                placeholder="Ask a question about your documents..."
-                disabled={loading || documents.length === 0}
-              />
-              <button
-                onClick={handleSendMessage}
-                disabled={loading || !input.trim()}
-              >
-                Send
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="no-session">
-            <h2>Welcome to DocuRAG</h2>
-            <p>Upload PDFs and ask questions about them.</p>
-            {documents.length === 0 ? (
-              <p>👈 Start by uploading a PDF in the sidebar</p>
-            ) : (
-              <button onClick={handleNewChat} className="start-chat-btn">
-                Start a new chat
-              </button>
-            )}
-          </div>
-        )}
-      </main>
+    <div className="flex h-screen bg-zinc-950 text-white">
+      <Sidebar
+        documents={documents}
+        sessions={sessions}
+        currentSessionId={currentSession?.id || null}
+        uploading={uploading}
+        onNewChat={handleNewChat}
+        onSelectSession={handleSelectSession}
+        onDeleteSession={handleDeleteSession}
+        onUpload={handleUpload}
+      />
+      <ChatArea
+        messages={messages}
+        loading={loading}
+        hasDocuments={documents.length > 0}
+        hasSession={!!currentSession}
+        input={input}
+        onInputChange={setInput}
+        onSendMessage={handleSendMessage}
+        onStartChat={handleNewChat}
+      />
     </div>
   );
 }
