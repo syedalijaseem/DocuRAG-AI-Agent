@@ -45,14 +45,25 @@ async def rag_ingest_pdf(ctx: inngest.Context):
     event_data = IngestPdfEventData(**ctx.event.data)
     
     def _load() -> RAGChunkAndSrc:
-        # load_and_chunk_pdf should ideally also return page numbers
-        chunks = load_and_chunk_pdf(event_data.pdf_path)
+        import file_storage
+        import os
+        
+        # Download PDF from S3 to temp file
+        temp_path = file_storage.download_to_temp(event_data.pdf_path)
+        
+        try:
+            # load_and_chunk_pdf should ideally also return page numbers
+            chunks = load_and_chunk_pdf(temp_path)
 
-        # Attach page info (for now assume sequential pages for each chunk)
-        chunk_with_page = [
-            ChunkWithPage(text=chunk, page=i + 1) for i, chunk in enumerate(chunks)
-        ]
-        return RAGChunkAndSrc(chunks=chunk_with_page, source_id=event_data.source_id)
+            # Attach page info (for now assume sequential pages for each chunk)
+            chunk_with_page = [
+                ChunkWithPage(text=chunk, page=i + 1) for i, chunk in enumerate(chunks)
+            ]
+            return RAGChunkAndSrc(chunks=chunk_with_page, source_id=event_data.source_id)
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
 
     def _upsert(chunks_and_src: RAGChunkAndSrc) -> RAGUpsertResult:
         source_id = chunks_and_src.source_id
@@ -180,6 +191,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate limiting
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Include API routes
 from api_routes import router as api_router

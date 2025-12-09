@@ -199,27 +199,118 @@ def get_messages(session_id: str):
 
 # --- File Upload Endpoint ---
 
+import file_storage
+from fastapi import Request
+
+# PDF magic bytes (common variants)
+PDF_MAGIC_BYTES = [b'%PDF', b'\x25\x50\x44\x46']
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+
+
+def validate_pdf_content(content: bytes) -> bool:
+    """Validate that file content starts with PDF magic bytes."""
+    if len(content) < 4:
+        return False
+    header = content[:4]
+    return any(header.startswith(magic) for magic in PDF_MAGIC_BYTES)
+
+
 @router.post("/workspaces/{workspace_id}/upload")
 async def upload_document(
+    request: Request,
     workspace_id: str,
     file: UploadFile = File(...)
 ):
-    """Upload a PDF document to a workspace."""
-    if not file.filename.endswith('.pdf'):
+    """Upload a PDF document to a workspace (stored in S3).
+    
+    Rate limited to 10 uploads per minute per IP.
+    """
+    # Check file extension
+    if not file.filename or not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
     
-    # Save file
-    upload_dir = "uploads"
-    os.makedirs(upload_dir, exist_ok=True)
-    file_path = os.path.join(upload_dir, file.filename)
-    
+    # Read file content
     content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
+    
+    # Check file size
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)}MB")
+    
+    # Validate PDF magic bytes
+    if not validate_pdf_content(content):
+        raise HTTPException(status_code=400, detail="Invalid PDF file content")
+    
+    # Sanitize filename
+    import re
+    safe_filename = re.sub(r'[^\w\s\-\.]', '', file.filename)
+    if not safe_filename or safe_filename != file.filename:
+        # Use a safe version
+        safe_filename = re.sub(r'[^\w\-\.]', '_', file.filename)
+    
+    # Upload to S3 with workspace prefix
+    prefix = f"workspaces/{workspace_id}/"
+    result = file_storage.upload_file(content, safe_filename, prefix)
     
     return {
-        "filename": file.filename,
-        "path": file_path,
+        "filename": safe_filename,
+        "path": result["s3_key"],  # S3 key for ingestion
+        "s3_url": result["url"],
         "workspace_id": workspace_id,
         "status": "uploaded"
     }
+
+
+# --- Inngest Event Endpoints ---
+
+# Inngest client for sending events
+def get_inngest_client():
+    return inngest.Inngest(app_id="rag-app", is_production=False)
+
+
+class IngestEventRequest(BaseModel):
+    pdf_path: str
+    source_id: str
+    workspace_id: str
+
+
+class QueryEventRequest(BaseModel):
+    question: str
+    workspace_id: str
+    top_k: int = 5
+    history: list[dict] = []
+
+
+@router.post("/events/ingest")
+async def send_ingest_event(request: IngestEventRequest):
+    """Send an ingest PDF event to Inngest."""
+    client = get_inngest_client()
+    result = await client.send(
+        inngest.Event(
+            name="rag/ingest_pdf",
+            data={
+                "pdf_path": request.pdf_path,
+                "source_id": request.source_id,
+                "workspace_id": request.workspace_id,
+            }
+        )
+    )
+    return {"event_ids": result}
+
+
+@router.post("/events/query")
+async def send_query_event(request: QueryEventRequest):
+    """Send a query event to Inngest."""
+    client = get_inngest_client()
+    result = await client.send(
+        inngest.Event(
+            name="rag/query_pdf_ai",
+            data={
+                "question": request.question,
+                "workspace_id": request.workspace_id,
+                "top_k": request.top_k,
+                "history": request.history,
+            }
+        )
+    )
+    return {"event_ids": result}
+

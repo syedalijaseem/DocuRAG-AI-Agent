@@ -113,22 +113,49 @@ function App() {
 
   async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (!file || !workspace) return;
+    if (!file) {
+      console.warn("No file selected");
+      return;
+    }
+    if (!workspace) {
+      console.error("No workspace available for upload");
+      return;
+    }
 
+    console.log("Starting upload:", file.name, "to workspace:", workspace.id);
     setUploading(true);
     try {
+      console.log("Uploading file...");
       const result = await api.uploadDocument(workspace.id, file);
-      const eventId = await api.sendIngestEvent(
+      console.log("Upload result:", result);
+
+      console.log("Sending ingest event...");
+      const eventIds = await api.sendIngestEvent(
         result.path,
         result.filename,
         workspace.id
       );
-      await api.waitForRunOutput(eventId);
+      console.log("Ingest event IDs:", eventIds);
+
+      if (eventIds.length > 0) {
+        console.log("Waiting for ingestion to complete...");
+        await api.waitForRunOutput(eventIds[0]);
+        console.log("Ingestion complete!");
+      }
+
       await loadDocuments();
+      console.log("Documents reloaded");
     } catch (error) {
       console.error("Upload failed:", error);
+      alert(
+        `Upload failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     } finally {
       setUploading(false);
+      // Reset the file input so the same file can be uploaded again
+      event.target.value = "";
     }
   }
 
@@ -156,13 +183,18 @@ function App() {
         role: m.role,
         content: m.content,
       }));
-      const eventId = await api.sendQueryEvent(
+      const eventIds = await api.sendQueryEvent(
         userMessage,
         workspace.id,
         5,
         history
       );
-      const result = await api.waitForRunOutput(eventId);
+
+      if (eventIds.length === 0) {
+        throw new Error("No event ID returned");
+      }
+
+      const result = await api.waitForRunOutput(eventIds[0]);
 
       const answer =
         (result as { answer?: string }).answer || "No answer received";

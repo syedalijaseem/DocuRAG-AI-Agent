@@ -127,29 +127,22 @@ export async function getMessages(sessionId: string): Promise<Message[]> {
   return fetchApi(`/sessions/${sessionId}/messages`);
 }
 
-// --- Inngest Events (via Inngest API) ---
-
-const INNGEST_API = "http://localhost:8288/e";
+// --- Inngest Events (via FastAPI) ---
 
 export async function sendIngestEvent(
   pdfPath: string,
   sourceId: string,
   workspaceId: string
-): Promise<string> {
-  const response = await fetch(INNGEST_API, {
+): Promise<string[]> {
+  const result = await fetchApi<{ event_ids: string[] }>("/events/ingest", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      name: "rag/ingest_pdf",
-      data: {
-        pdf_path: pdfPath,
-        source_id: sourceId,
-        workspace_id: workspaceId,
-      },
+      pdf_path: pdfPath,
+      source_id: sourceId,
+      workspace_id: workspaceId,
     }),
   });
-  const result = await response.json();
-  return result.ids?.[0] || "";
+  return result.event_ids;
 }
 
 export async function sendQueryEvent(
@@ -157,17 +150,17 @@ export async function sendQueryEvent(
   workspaceId: string,
   topK: number = 5,
   history: Array<{ role: string; content: string }> = []
-): Promise<string> {
-  const response = await fetch(INNGEST_API, {
+): Promise<string[]> {
+  const result = await fetchApi<{ event_ids: string[] }>("/events/query", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      name: "rag/query_pdf_ai",
-      data: { question, workspace_id: workspaceId, top_k: topK, history },
+      question,
+      workspace_id: workspaceId,
+      top_k: topK,
+      history,
     }),
   });
-  const result = await response.json();
-  return result.ids?.[0] || "";
+  return result.event_ids;
 }
 
 // --- Inngest Run Polling ---
