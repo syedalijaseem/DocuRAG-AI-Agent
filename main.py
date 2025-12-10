@@ -63,6 +63,8 @@ async def rag_ingest_pdf(ctx: inngest.Context):
     def _load() -> RAGChunkAndSrc:
         import file_storage
         import os
+        from chunk_service import update_document_status
+        from models import DocumentStatus
         
         # Download PDF from S3 to temp file
         temp_path = file_storage.download_to_temp(event_data.pdf_path)
@@ -70,12 +72,21 @@ async def rag_ingest_pdf(ctx: inngest.Context):
         try:
             # load_and_chunk_pdf extracts text chunks
             chunks = load_and_chunk_pdf(temp_path)
+            
+            # Validate we got content
+            if not chunks:
+                raise ValueError("PDF appears to be empty or unreadable")
 
             # Attach page info (for now assume sequential pages for each chunk)
             chunk_with_page = [
                 ChunkWithPage(text=chunk, page=i + 1) for i, chunk in enumerate(chunks)
             ]
             return RAGChunkAndSrc(chunks=chunk_with_page, source_id=event_data.filename)
+        except Exception as e:
+            # Log error and leave status as pending for retry
+            # In production, could set status to 'error' after max retries
+            print(f"PDF parsing error for {event_data.filename}: {e}")
+            raise
         finally:
             # Clean up temp file
             if os.path.exists(temp_path):

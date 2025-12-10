@@ -336,6 +336,46 @@ async def get_project_documents(
     return {"documents": documents}
 
 
+@router.get("/documents/{document_id}/status")
+async def get_document_status(
+    document_id: str,
+    user = Depends(get_current_user)
+):
+    """Get the status of a document.
+    
+    Returns the document status (pending, ready, deleting) for tracking ingestion progress.
+    """
+    db = get_db()
+    
+    # Get document
+    doc = db.documents.find_one({"id": document_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Check user has access via any scope
+    user_chats = [c["id"] for c in db.chats.find({"user_id": user.id}, {"id": 1})]
+    user_projects = [p["id"] for p in db.projects.find({"user_id": user.id}, {"id": 1})]
+    
+    scope_link = db.document_scopes.find_one({
+        "document_id": document_id,
+        "$or": [
+            {"scope_type": "chat", "scope_id": {"$in": user_chats}},
+            {"scope_type": "project", "scope_id": {"$in": user_projects}}
+        ]
+    })
+    
+    if not scope_link:
+        raise HTTPException(status_code=403, detail="Not authorized to access this document")
+    
+    return {
+        "document_id": doc["id"],
+        "filename": doc["filename"],
+        "status": doc["status"],
+        "size_bytes": doc["size_bytes"],
+        "uploaded_at": doc.get("uploaded_at")
+    }
+
+
 @router.delete("/documents/{document_id}")
 async def delete_document(
     document_id: str,
