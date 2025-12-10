@@ -165,7 +165,7 @@ export function LoginPage({
         {/* Google Sign-In Button */}
         <button
           type="button"
-          onClick={() => alert("Google Sign-In coming soon!")}
+          onClick={() => (window.location.href = "/api/auth/google")}
           className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl
                      border border-zinc-300 dark:border-zinc-700 
                      bg-white dark:bg-zinc-900 

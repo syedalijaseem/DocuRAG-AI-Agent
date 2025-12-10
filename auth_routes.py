@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Response, Request, Depends
+from fastapi.responses import RedirectResponse
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 import os
@@ -31,6 +32,7 @@ from auth_service import (
 from email_service import (
     send_verification_email, send_password_reset_email, send_email_change_verification
 )
+import google_oauth
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -50,7 +52,7 @@ def get_db():
 
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
 COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", None)
-COOKIE_SAMESITE = "strict"
+COOKIE_SAMESITE = "lax"  # lax allows cookies on top-level navigations (OAuth redirects)
 
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
@@ -701,3 +703,135 @@ async def delete_account(password: str, response: Response, user: User = Depends
     
     return {"message": "Account deleted successfully"}
 
+
+# --- Google OAuth ---
+
+@router.get("/google")
+async def google_login():
+    """Redirect to Google OAuth consent screen."""
+    if not google_oauth.is_configured():
+        raise HTTPException(
+            status_code=503, 
+            detail="Google OAuth is not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET."
+        )
+    
+    # Generate state for CSRF protection
+    state = generate_token()
+    # In production, you'd store this state in a session or signed cookie
+    
+    auth_url = google_oauth.get_authorization_url(state=state)
+    return RedirectResponse(url=auth_url)
+
+
+@router.get("/google/callback")
+async def google_callback(code: str, response: Response, state: Optional[str] = None):
+    """Handle Google OAuth callback.
+    
+    Creates a new user if they don't exist, or logs them in if they do.
+    Google users are automatically email-verified.
+    """
+    if not google_oauth.is_configured():
+        raise HTTPException(status_code=503, detail="Google OAuth is not configured")
+    
+    db = get_db()
+    
+    try:
+        # Exchange code for user info
+        google_user = await google_oauth.authenticate_with_google(code)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Google authentication failed: {str(e)}")
+    
+    # Check if user exists by email
+    email = google_user["email"].lower()
+    user_doc = db.users.find_one({"email": email})
+    
+    if user_doc:
+        # Existing user - update Google provider link if not already linked
+        del user_doc["_id"]
+        user = User(**user_doc)
+        
+        # Check if Google provider is already linked
+        provider_doc = db.user_providers.find_one({
+            "user_id": user.id,
+            "provider": "google"
+        })
+        
+        if not provider_doc:
+            # Link Google account
+            provider = UserProvider(
+                user_id=user.id,
+                provider="google",
+                provider_user_id=google_user["google_id"]
+            )
+            db.user_providers.insert_one(provider.model_dump())
+        
+        # Update profile picture if not set
+        if google_user.get("picture") and not user.avatar_url:
+            db.users.update_one(
+                {"id": user.id},
+                {"$set": {"avatar_url": google_user["picture"]}}
+            )
+            user.avatar_url = google_user["picture"]
+    else:
+        # New user - create account
+        user = User(
+            email=email,
+            password_hash=None,  # No password for Google-only users
+            name=google_user.get("name"),
+            avatar_url=google_user.get("picture"),
+            email_verified=True,  # Google emails are pre-verified
+        )
+        db.users.insert_one(user.model_dump())
+        
+        # Create Google provider link
+        provider = UserProvider(
+            user_id=user.id,
+            provider="google",
+            provider_user_id=google_user["google_id"]
+        )
+        db.user_providers.insert_one(provider.model_dump())
+    
+    # Update last login
+    db.users.update_one(
+        {"id": user.id},
+        {"$set": {"last_login": datetime.now(timezone.utc)}}
+    )
+    
+    # Create tokens
+    access_token = create_access_token({"sub": user.id, "email": user.email})
+    raw_refresh, hashed_refresh, refresh_expires = create_refresh_token(user.id)
+    
+    # Store refresh token
+    refresh_doc = RefreshToken(
+        user_id=user.id,
+        token_hash=hashed_refresh,
+        expires_at=refresh_expires,
+        device_info="Google OAuth Login"
+    )
+    db.refresh_tokens.insert_one(refresh_doc.model_dump())
+    
+    # Redirect to frontend with cookies
+    frontend_url = os.getenv("APP_URL", "http://localhost:5173")
+    redirect_response = RedirectResponse(url=frontend_url, status_code=302)
+    
+    # Set cookies on the redirect response
+    redirect_response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        domain=COOKIE_DOMAIN
+    )
+    redirect_response.set_cookie(
+        key="refresh_token",
+        value=raw_refresh,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        domain=COOKIE_DOMAIN
+    )
+    
+    return redirect_response

@@ -33,13 +33,10 @@ export function VerifyEmailPage({
 
   async function verifyEmail() {
     try {
-      const response = await fetch(
-        `http://localhost:8000/api/auth/verify-email?token=${token}`,
-        {
-          method: "GET",
-          credentials: "include",
-        }
-      );
+      const response = await fetch(`/api/auth/verify-email?token=${token}`, {
+        method: "GET",
+        credentials: "include",
+      });
 
       if (response.ok) {
         setStatus("success");

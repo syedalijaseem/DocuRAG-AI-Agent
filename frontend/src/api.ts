@@ -10,7 +10,7 @@ import type {
   ScopeType,
 } from "./types";
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = "/api"; // Relative URL - proxied by Vite in dev, same-origin in prod
 
 /**
  * Generic fetch wrapper with error handling.
