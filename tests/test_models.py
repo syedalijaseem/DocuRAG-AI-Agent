@@ -80,22 +80,21 @@ class TestDocument:
         doc = Document(
             filename="test.pdf",
             s3_key="chats/chat_123/test.pdf",
-            scope_type=ScopeType.CHAT,
-            scope_id="chat_123"
+            checksum="a" * 64,
+            size_bytes=1024
         )
         assert doc.id.startswith("doc_")
         assert doc.filename == "test.pdf"
-        assert doc.scope_type == ScopeType.CHAT
-        assert doc.scope_id == "chat_123"
+        assert doc.status.value == "pending"
     
     def test_create_project_document(self):
         doc = Document(
             filename="report.pdf",
             s3_key="projects/proj_456/report.pdf",
-            scope_type=ScopeType.PROJECT,
-            scope_id="proj_456"
+            checksum="b" * 64,
+            size_bytes=2048
         )
-        assert doc.scope_type == ScopeType.PROJECT
+        assert doc.s3_key == "projects/proj_456/report.pdf"
 
 
 class TestMessage:
@@ -128,10 +127,12 @@ class TestIngestPdfEventData:
             pdf_path="chats/chat_123/file.pdf",
             filename="file.pdf",
             scope_type=ScopeType.CHAT,
-            scope_id="chat_123"
+            scope_id="chat_123",
+            document_id="doc_abc123"
         )
         assert data.pdf_path == "chats/chat_123/file.pdf"
         assert data.scope_type == ScopeType.CHAT
+        assert data.document_id == "doc_abc123"
     
     def test_invalid_pdf_path_extension(self):
         with pytest.raises(ValidationError) as exc_info:
@@ -139,7 +140,8 @@ class TestIngestPdfEventData:
                 pdf_path="chats/chat_123/file.txt",
                 filename="file.txt",
                 scope_type=ScopeType.CHAT,
-                scope_id="chat_123"
+                scope_id="chat_123",
+                document_id="doc_abc123"
             )
         assert "pdf_path must end with .pdf" in str(exc_info.value)
     
@@ -148,7 +150,8 @@ class TestIngestPdfEventData:
             pdf_path="projects/proj_456/file.pdf",
             filename="file.pdf",
             scope_type=ScopeType.PROJECT,
-            scope_id="proj_456"
+            scope_id="proj_456",
+            document_id="doc_def456"
         )
         assert data.scope_type == ScopeType.PROJECT
         assert data.scope_id == "proj_456"
