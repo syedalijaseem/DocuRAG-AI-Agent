@@ -49,6 +49,9 @@ class TestAPIRouteSecurity:
         file_content = b"%PDF-1.4"
         files = {"file": ("../../../etc/passwd.pdf", io.BytesIO(file_content), "application/pdf")}
         
+        # Mock M1 deduplication check
+        mock_db.documents.find_one.return_value = None
+        
         with patch("api_routes.file_storage.upload_file") as mock_upload:
             mock_upload.return_value = {"s3_key": "safe_key", "url": "s3://test", "filename": "passwd.pdf"}
             response = client.post("/api/upload?scope_type=chat&scope_id=chat_123", files=files)
@@ -89,11 +92,13 @@ class TestAPIRouteSecurity:
 
     def test_delete_chat_removes_messages(self, client, mock_db):
         """Deleting chat should also delete its messages."""
-        response = client.delete("/api/chats/chat_123")
-        
-        # Verify collections were modified
-        mock_db.chats.delete_one.assert_called_once()
-        mock_db.messages.delete_many.assert_called()
+        with patch("vector_db.MongoDBStorage") as mock_vector:
+            mock_vector.return_value.delete_by_scope = MagicMock()
+            response = client.delete("/api/chats/chat_123")
+            
+            # Verify collections were modified
+            mock_db.chats.delete_one.assert_called_once()
+            mock_db.messages.delete_many.assert_called()
 
 
 class TestAPIRoutesFunctionality:
@@ -260,6 +265,8 @@ class TestScopeSecurityValidation:
     def test_upload_accepts_valid_chat_scope(self, client, mock_db):
         """Should accept upload to existing chat."""
         mock_db.chats.find_one.return_value = {"id": "chat_123"}
+        # Mock M1 deduplication check - no existing doc
+        mock_db.documents.find_one.return_value = None
         
         file_content = b"%PDF-1.4"
         files = {"file": ("test.pdf", io.BytesIO(file_content), "application/pdf")}
@@ -274,20 +281,24 @@ class TestScopeSecurityValidation:
         """Deleting project should clean up all related data."""
         mock_db.chats.find.return_value = [{"id": "chat_1"}, {"id": "chat_2"}]
         
-        response = client.delete("/api/projects/proj_123")
-        
-        assert response.status_code == 200
-        # Verify cascade deletion
-        mock_db.documents.delete_many.assert_called()
-        mock_db.chats.delete_many.assert_called()
-        mock_db.projects.delete_one.assert_called()
+        with patch("vector_db.MongoDBStorage") as mock_vector:
+            mock_vector.return_value.delete_by_scope = MagicMock()
+            response = client.delete("/api/projects/proj_123")
+            
+            assert response.status_code == 200
+            # Verify cascade deletion
+            mock_db.documents.delete_many.assert_called()
+            mock_db.chats.delete_many.assert_called()
+            mock_db.projects.delete_one.assert_called()
 
     def test_delete_chat_cascades(self, client, mock_db):
         """Deleting chat should clean up messages and documents."""
-        response = client.delete("/api/chats/chat_123")
-        
-        assert response.status_code == 200
-        mock_db.messages.delete_many.assert_called()
-        mock_db.documents.delete_many.assert_called()
-        mock_db.chats.delete_one.assert_called()
+        with patch("vector_db.MongoDBStorage") as mock_vector:
+            mock_vector.return_value.delete_by_scope = MagicMock()
+            response = client.delete("/api/chats/chat_123")
+            
+            assert response.status_code == 200
+            mock_db.messages.delete_many.assert_called()
+            mock_db.documents.delete_many.assert_called()
+            mock_db.chats.delete_one.assert_called()
 

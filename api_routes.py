@@ -253,10 +253,22 @@ def save_message(request: SaveMessageRequest):
 
 @router.get("/documents")
 def list_documents(scope_type: str, scope_id: str):
-    """List documents for a scope (chat or project)."""
+    """List documents for a scope (chat or project) via DocumentScope."""
     db = get_db()
-    docs = list(db.documents.find(
+    
+    # Get document_ids linked to this scope (M1 architecture)
+    scope_links = list(db.document_scopes.find(
         {"scope_type": scope_type, "scope_id": scope_id},
+        {"document_id": 1}
+    ))
+    doc_ids = [s["document_id"] for s in scope_links]
+    
+    if not doc_ids:
+        return []
+    
+    # Get document details
+    docs = list(db.documents.find(
+        {"id": {"$in": doc_ids}},
         {"_id": 0}
     ))
     return docs
@@ -266,22 +278,31 @@ def get_chat_documents(chat_id: str, include_project: bool = True):
     """Get documents for a chat, optionally including project docs."""
     db = get_db()
     
-    # Get chat-specific documents
-    docs = list(db.documents.find(
+    # Get chat document_ids via DocumentScope
+    chat_links = list(db.document_scopes.find(
         {"scope_type": "chat", "scope_id": chat_id},
-        {"_id": 0}
+        {"document_id": 1}
     ))
+    doc_ids = [s["document_id"] for s in chat_links]
     
     # If chat belongs to a project, include project docs
     if include_project:
         chat = db.chats.find_one({"id": chat_id})
         if chat and chat.get("project_id"):
-            project_docs = list(db.documents.find(
+            project_links = list(db.document_scopes.find(
                 {"scope_type": "project", "scope_id": chat["project_id"]},
-                {"_id": 0}
+                {"document_id": 1}
             ))
-            docs.extend(project_docs)
+            doc_ids.extend([s["document_id"] for s in project_links])
     
+    if not doc_ids:
+        return []
+    
+    # Get unique document details
+    docs = list(db.documents.find(
+        {"id": {"$in": list(set(doc_ids))}},
+        {"_id": 0}
+    ))
     return docs
 
 
@@ -346,23 +367,56 @@ async def upload_document(
     
     # Sanitize filename
     import re
+    import hashlib
     safe_filename = re.sub(r'[^\w\s\-\.]', '', file.filename)
     if not safe_filename or safe_filename != file.filename:
         safe_filename = re.sub(r'[^\w\-\.]', '_', file.filename)
+    
+    # Calculate checksum for deduplication
+    checksum = "sha256:" + hashlib.sha256(content).hexdigest()
+    
+    # Check for existing document with same checksum (M1 deduplication)
+    db = get_db()
+    existing_doc = db.documents.find_one({"checksum": checksum})
+    
+    if existing_doc:
+        # Document exists, just add scope link
+        from models import DocumentScope
+        scope_link = DocumentScope(
+            document_id=existing_doc["id"],
+            scope_type=scope,
+            scope_id=scope_id
+        )
+        db.document_scopes.insert_one(scope_link.model_dump())
+        
+        return {
+            "document": existing_doc,
+            "status": "linked",
+            "message": "Document already exists, linked to scope"
+        }
     
     # Upload to S3 with scope prefix
     prefix = f"{scope_type}s/{scope_id}/"
     result = file_storage.upload_file(content, safe_filename, prefix)
     
-    # Create document record
-    db = get_db()
+    # Create document record (M1 model)
+    from models import DocumentScope, DocumentStatus
     doc = Document(
         filename=safe_filename,
         s3_key=result["s3_key"],
+        checksum=checksum,
+        size_bytes=len(content),
+        status=DocumentStatus.PENDING
+    )
+    db.documents.insert_one(doc.model_dump())
+    
+    # Create scope link (M1 DocumentScope)
+    scope_link = DocumentScope(
+        document_id=doc.id,
         scope_type=scope,
         scope_id=scope_id
     )
-    db.documents.insert_one(doc.model_dump())
+    db.document_scopes.insert_one(scope_link.model_dump())
     
     return {
         "document": doc.model_dump(),

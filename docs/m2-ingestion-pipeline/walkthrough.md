@@ -55,28 +55,47 @@ Same document + same chunk = same ID → re-ingest updates, not duplicates.
 
 ## Test Results
 
-### Summary: 155 Tests Passing ✅
+### Summary: 293 Tests Passing ✅
 
-| Test Suite             | Tests |
-| ---------------------- | ----- |
-| Auth (M0)              | 50    |
-| Document (M1)          | 70    |
-| Ingestion Unit (M2)    | 19    |
-| Ingestion Quality (M2) | 16    |
+| Test Suite                     | Tests |
+| ------------------------------ | ----- |
+| Auth (M0)                      | 50    |
+| Document (M1)                  | 70    |
+| Ingestion (M2)                 | 35    |
+| Query (M3)                     | 6     |
+| Availability/Speed             | 11    |
+| API Routes                     | 20    |
+| Other (security, models, etc.) | 101   |
+
+### 9-Aspect Quality Coverage ✅
+
+| Aspect         | Status                                          |
+| -------------- | ----------------------------------------------- |
+| Security       | ✅ Path validation, null bytes, scope isolation |
+| Scalability    | ✅ Bulk ops, 100 chunks/call                    |
+| Robustness     | ✅ Empty scope, error propagation               |
+| Efficiency     | ✅ 1536 dims, single bulk_write                 |
+| Availability   | ✅ Graceful degradation                         |
+| Speed          | ✅ 10K IDs < 1s, pipeline latency               |
+| Optimization   | ✅ Atomic updates, checksum dedup               |
+| Best Practices | ✅ Docstrings, Pydantic, types                  |
+| Architecture   | ✅ Service separation, DocumentScope            |
 
 ---
 
 ## Files Changed
 
-| File                              | Change                                              |
-| --------------------------------- | --------------------------------------------------- |
-| `models.py`                       | Added `document_id` to IngestPdfEventData           |
-| `main.py`                         | Refactored ingest + query, added PDF error handling |
-| `document_routes.py`              | Added status endpoint                               |
-| `chunk_service.py`                | NEW - Chunk CRUD operations                         |
-| `chunk_search.py`                 | NEW - Document-scoped vector search                 |
-| `tests/test_ingestion.py`         | NEW - 19 unit tests                                 |
-| `tests/test_ingestion_quality.py` | NEW - 16 quality tests                              |
+| File                               | Change                                        |
+| ---------------------------------- | --------------------------------------------- |
+| `models.py`                        | Added `document_id` to IngestPdfEventData     |
+| `main.py`                          | Refactored ingest + query, PDF error handling |
+| `document_routes.py`               | Added status endpoint                         |
+| `api_routes.py`                    | M1 migration: DocumentScope, checksum dedup   |
+| `chunk_service.py`                 | NEW - Chunk CRUD operations                   |
+| `chunk_search.py`                  | NEW - Document-scoped vector search           |
+| `tests/test_ingestion.py`          | NEW - 19 unit tests                           |
+| `tests/test_ingestion_quality.py`  | NEW - 16 quality tests                        |
+| `tests/test_availability_speed.py` | NEW - 11 quality tests                        |
 
 ---
 
@@ -102,6 +121,5 @@ Required on `chunks` collection:
 
 ## Next Steps
 
-- **M3**: Query Integration (add include_project support)
 - **M4**: Frontend Chat Upload UI
 - **M5**: Frontend Project Upload UI

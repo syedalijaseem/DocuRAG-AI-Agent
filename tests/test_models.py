@@ -80,7 +80,7 @@ class TestDocument:
         doc = Document(
             filename="test.pdf",
             s3_key="chats/chat_123/test.pdf",
-            checksum="a" * 64,
+            checksum="sha256:" + "a" * 64,
             size_bytes=1024
         )
         assert doc.id.startswith("doc_")
@@ -91,7 +91,7 @@ class TestDocument:
         doc = Document(
             filename="report.pdf",
             s3_key="projects/proj_456/report.pdf",
-            checksum="b" * 64,
+            checksum="sha256:" + "b" * 64,
             size_bytes=2048
         )
         assert doc.s3_key == "projects/proj_456/report.pdf"

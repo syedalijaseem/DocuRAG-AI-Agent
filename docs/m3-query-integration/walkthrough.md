@@ -36,16 +36,17 @@ if chat belongs to project:
 
 ---
 
-## Test Results
+## Test Results: 293 Passed ✅
 
-### Summary: 161 Tests Passing ✅
-
-| Test Suite             | Tests |
-| ---------------------- | ----- |
-| Auth (M0)              | 50    |
-| Document (M1)          | 70    |
-| Ingestion (M2)         | 35    |
-| Query Integration (M3) | 6     |
+| Test Suite         | Tests |
+| ------------------ | ----- |
+| Auth (M0)          | 50    |
+| Document (M1)      | 70    |
+| Ingestion (M2)     | 35    |
+| Query (M3)         | 6     |
+| Availability/Speed | 11    |
+| API Routes         | 20    |
+| Other              | 101   |
 
 ---
 
