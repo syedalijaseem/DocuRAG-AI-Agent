@@ -1,7 +1,7 @@
 /**
  * Sidebar component with projects and chats.
  */
-import type { Project, Chat, Document } from "../types";
+import type { Project, Chat, Document, User } from "../types";
 
 interface SidebarProps {
   projects: Project[];
@@ -11,6 +11,7 @@ interface SidebarProps {
   currentChatId: string | null;
   currentProjectId: string | null;
   uploading: boolean;
+  user: User | null;
   onNewChat: () => void;
   onNewProject: () => void;
   onSelectChat: (chat: Chat) => void;
@@ -18,6 +19,8 @@ interface SidebarProps {
   onDeleteChat: (chatId: string) => void;
   onPinChat: (chatId: string, isPinned: boolean) => void;
   onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onLogout: () => void;
+  onSettings: () => void;
 }
 
 export function Sidebar({
@@ -28,6 +31,7 @@ export function Sidebar({
   currentChatId,
   currentProjectId,
   uploading,
+  user,
   onNewChat,
   onNewProject,
   onSelectChat,
@@ -35,6 +39,8 @@ export function Sidebar({
   onDeleteChat,
   onPinChat,
   onUpload,
+  onLogout,
+  onSettings,
 }: SidebarProps) {
   // Separate pinned and unpinned chats
   const pinnedChats = standaloneChats.filter((c) => c.is_pinned);
@@ -190,6 +196,38 @@ export function Sidebar({
           ))}
         </ul>
       </div>
+
+      {/* User Section */}
+      {user && (
+        <div className="p-4 border-t border-zinc-800 mt-auto">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center text-white text-sm font-medium">
+              {user.name?.charAt(0).toUpperCase() ||
+                user.email.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">
+                {user.name || "User"}
+              </p>
+              <p className="text-xs text-zinc-500 truncate">{user.email}</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={onSettings}
+              className="flex-1 px-3 py-1.5 text-xs text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+            >
+              ⚙️ Settings
+            </button>
+            <button
+              onClick={onLogout}
+              className="flex-1 px-3 py-1.5 text-xs text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-lg transition-colors"
+            >
+              🚪 Logout
+            </button>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

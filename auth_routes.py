@@ -28,6 +28,9 @@ from auth_service import (
     login_rate_limiter, ip_rate_limiter,
     ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 )
+from email_service import (
+    send_verification_email, send_password_reset_email, send_email_change_verification
+)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -144,9 +147,8 @@ async def register(data: RegisterRequest):
     except DuplicateKeyError:
         raise HTTPException(status_code=409, detail="Email already registered")
     
-    # TODO: Queue verification email via Inngest
-    # For now, log the token (development only)
-    print(f"[DEV] Verification token for {data.email}: {verification_token}")
+    # Send verification email
+    send_verification_email(data.email, verification_token, data.name)
     
     return {"message": "Registration successful. Please check your email to verify your account."}
 
@@ -166,8 +168,12 @@ async def verify_email(token: str, response: Response):
     
     # Check expiration
     expires_at = user_doc.get("verification_expires_at")
-    if expires_at and expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Verification link has expired")
+    if expires_at:
+        # Handle naive datetime from MongoDB - assume UTC
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=400, detail="Verification link has expired")
     
     # Update user
     db.users.update_one(

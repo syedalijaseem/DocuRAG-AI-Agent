@@ -3,9 +3,31 @@ import type { Project, Chat, Message, Document, ScopeType } from "./types";
 import * as api from "./api";
 import { Sidebar } from "./components/Sidebar";
 import { ChatArea } from "./components/ChatArea";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
+import { LoginPage } from "./pages/LoginPage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import "./index.css";
 
-function App() {
+// Auth view states
+type AuthView = "login" | "register" | "settings" | null;
+
+// Get verification token from URL
+function getVerifyToken(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  if (window.location.pathname === "/verify-email") {
+    return params.get("token");
+  }
+  return null;
+}
+
+function AppContent() {
+  const { user, loading: authLoading, logout } = useAuth();
+  const [authView, setAuthView] = useState<AuthView>(null);
+  const [verifyToken, setVerifyToken] = useState<string | null>(getVerifyToken);
+
   // State
   const [projects, setProjects] = useState<Project[]>([]);
   const [standaloneChats, setStandaloneChats] = useState<Chat[]>([]);
@@ -268,6 +290,61 @@ function App() {
     }
   }
 
+  // Show loading spinner during auth check
+  if (authLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-zinc-950">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  // Handle email verification from link
+  if (verifyToken) {
+    const handleVerifyComplete = () => {
+      setVerifyToken(null);
+      window.history.replaceState({}, "", "/");
+      setAuthView("login");
+    };
+    return (
+      <VerifyEmailPage
+        token={verifyToken}
+        onSuccess={handleVerifyComplete}
+        onError={handleVerifyComplete}
+      />
+    );
+  }
+
+  // Show login/register if not authenticated
+  if (!user) {
+    if (authView === "register") {
+      return (
+        <RegisterPage
+          onSwitchToLogin={() => setAuthView("login")}
+          onSuccess={() => setAuthView("login")}
+        />
+      );
+    }
+    return (
+      <LoginPage
+        onSwitchToRegister={() => setAuthView("register")}
+        onForgotPassword={() =>
+          alert("Password reset: Check console for token")
+        }
+        onSuccess={() => setAuthView(null)}
+      />
+    );
+  }
+
+  // Show settings modal if open
+  if (authView === "settings") {
+    return (
+      <div className="flex h-screen bg-zinc-950">
+        <SettingsPage onClose={() => setAuthView(null)} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-zinc-950 text-white">
       <Sidebar
@@ -278,6 +355,7 @@ function App() {
         currentChatId={currentChat?.id || null}
         currentProjectId={currentProject?.id || null}
         uploading={uploading}
+        user={user}
         onNewChat={handleNewChat}
         onNewProject={handleNewProject}
         onSelectChat={handleSelectChat}
@@ -285,6 +363,8 @@ function App() {
         onDeleteChat={handleDeleteChat}
         onPinChat={handlePinChat}
         onUpload={handleUpload}
+        onLogout={logout}
+        onSettings={() => setAuthView("settings")}
       />
       <ChatArea
         messages={messages}
@@ -299,6 +379,17 @@ function App() {
         onStartChat={handleNewChat}
       />
     </div>
+  );
+}
+
+// Main App wrapper with Theme and Auth providers
+function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

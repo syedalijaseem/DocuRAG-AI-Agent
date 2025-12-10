@@ -65,3 +65,39 @@ export interface ChatSession {
   title: string;
   created_at: string;
 }
+
+// --- Auth Types ---
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url: string | null;
+  email_verified: boolean;
+  created_at: string;
+  last_login: string | null;
+}
+
+export interface AuthResponse {
+  user: User;
+  is_new: boolean;
+}
+
+export interface Session {
+  id: string;
+  device_info: string | null;
+  created_at: string;
+  expires_at: string;
+  is_current: boolean;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  name: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
