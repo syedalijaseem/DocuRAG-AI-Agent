@@ -35,6 +35,13 @@ class ScopeType(str, Enum):
     PROJECT = "project"  # Document belongs to a project (shared across chats)
 
 
+class DocumentStatus(str, Enum):
+    """Document lifecycle status."""
+    PENDING = "pending"    # Uploaded, ingestion in progress
+    READY = "ready"        # Fully ingested, searchable
+    DELETING = "deleting"  # Marked for deletion, hidden from queries
+
+
 class AuthProvider(str, Enum):
     """Supported authentication providers."""
     EMAIL = "email"
@@ -252,14 +259,89 @@ class Chat(BaseModel):
 
 
 class Document(BaseModel):
-    """A document with scoped ownership (chat or project)."""
+    """A document in the global document store.
+    
+    Documents are stored once and linked to scopes via DocumentScope.
+    Deduplication is achieved via checksum - same file = same document.
+    """
     id: str = Field(default_factory=lambda: generate_id("doc_"))
     filename: str
-    s3_key: str  # S3 object key
-    scope_type: ScopeType  # chat or project
-    scope_id: str  # chat_id or project_id
-    chunk_count: int = 0
+    s3_key: str  # S3 object key (unique)
+    checksum: str  # SHA-256 hash for deduplication (unique)
+    size_bytes: int = Field(ge=0)  # File size in bytes
+    status: DocumentStatus = DocumentStatus.PENDING
     uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    
+    @field_validator('checksum')
+    @classmethod
+    def validate_checksum(cls, v: str) -> str:
+        """Validate SHA-256 checksum format."""
+        v = v.strip().lower()
+        if not v.startswith('sha256:'):
+            raise ValueError('Checksum must be prefixed with sha256:')
+        hex_part = v[7:]  # Remove 'sha256:' prefix
+        if len(hex_part) != 64:
+            raise ValueError('SHA-256 hash must be 64 hex characters')
+        if not all(c in '0123456789abcdef' for c in hex_part):
+            raise ValueError('Checksum must contain only hex characters')
+        return v
+    
+    @field_validator('filename')
+    @classmethod
+    def validate_filename(cls, v: str) -> str:
+        """Sanitize filename."""
+        v = v.strip()
+        if not v:
+            raise ValueError('Filename cannot be empty')
+        # Remove dangerous characters
+        v = v.replace('..', '').replace('/', '').replace('\\', '')
+        if len(v) > 255:
+            raise ValueError('Filename too long')
+        return v
+
+
+class DocumentScope(BaseModel):
+    """Links a document to a scope (chat or project).
+    
+    This junction table enables:
+    - One document linked to multiple scopes (reuse)
+    - Clean deletion (remove link, orphan cleanup handles doc)
+    - Scope isolation (queries filter by scope)
+    """
+    id: str = Field(default_factory=lambda: generate_id("ds_"))
+    document_id: str
+    scope_type: ScopeType
+    scope_id: str  # chat_id or project_id
+    linked_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Chunk(BaseModel):
+    """A chunk of document text with its embedding.
+    
+    Chunks reference document by ID only - no metadata duplication.
+    """
+    id: str = Field(default_factory=lambda: generate_id("chunk_"))
+    document_id: str
+    chunk_index: int = Field(ge=0)  # Position in document (0-indexed)
+    page_number: int = Field(ge=1)  # Source page (1-indexed)
+    text: str
+    embedding: list[float] = Field(default_factory=list)  # 1536-dim vector
+    
+    @field_validator('text')
+    @classmethod
+    def validate_text(cls, v: str) -> str:
+        """Validate chunk text is not empty."""
+        if not v.strip():
+            raise ValueError('Chunk text cannot be empty')
+        return v
+    
+    @field_validator('embedding')
+    @classmethod
+    def validate_embedding(cls, v: list[float]) -> list[float]:
+        """Validate embedding dimensions (if provided)."""
+        if v and len(v) != 1536:
+            raise ValueError('Embedding must have 1536 dimensions')
+        return v
 
 
 class Message(BaseModel):

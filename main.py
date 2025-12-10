@@ -221,8 +221,10 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Include API routes
 from api_routes import router as api_router
 from auth_routes import router as auth_router
+from document_routes import router as document_router
 app.include_router(api_router)
 app.include_router(auth_router)
+app.include_router(document_router)
 
 # Inngest integration
 inngest.fast_api.serve(app, inngest_client, [rag_ingest_pdf, rag_query_pdf_ai])
