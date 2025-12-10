@@ -379,6 +379,7 @@ class IngestPdfEventData(BaseModel):
     filename: str  # Original filename
     scope_type: ScopeType
     scope_id: str  # chat_id or project_id
+    document_id: str  # Document ID for chunk linking (M2)
     
     @field_validator('pdf_path')
     @classmethod

@@ -49,8 +49,16 @@ inngest_client = inngest.Inngest(
     ),
 )
 async def rag_ingest_pdf(ctx: inngest.Context):
+    """Ingest a PDF document into the RAG system.
+    
+    M2 Refactored:
+    - Uses chunk_service to save to chunks collection
+    - References document_id instead of duplicating scope info
+    - Updates Document status to 'ready' after completion
+    """
     # Validate event data with Pydantic
     event_data = IngestPdfEventData(**ctx.event.data)
+    document_id = event_data.document_id
     
     def _load() -> RAGChunkAndSrc:
         import file_storage
@@ -60,7 +68,7 @@ async def rag_ingest_pdf(ctx: inngest.Context):
         temp_path = file_storage.download_to_temp(event_data.pdf_path)
         
         try:
-            # load_and_chunk_pdf should ideally also return page numbers
+            # load_and_chunk_pdf extracts text chunks
             chunks = load_and_chunk_pdf(temp_path)
 
             # Attach page info (for now assume sequential pages for each chunk)
@@ -73,31 +81,40 @@ async def rag_ingest_pdf(ctx: inngest.Context):
             if os.path.exists(temp_path):
                 os.remove(temp_path)
 
-    def _upsert(chunks_and_src: RAGChunkAndSrc) -> RAGUpsertResult:
-        source_id = chunks_and_src.source_id
+    def _embed_and_save(chunks_and_src: RAGChunkAndSrc) -> RAGUpsertResult:
+        """Embed chunks and save to chunks collection using chunk_service."""
+        from chunk_service import save_chunks, update_document_status
+        from models import DocumentStatus
+        
         chunks = chunks_and_src.chunks
-
+        
+        # Get text for embedding
         texts = [c.text for c in chunks]
-        vecs = embed_texts(texts)
-
-        ids = [str(uuid.uuid5(uuid.NAMESPACE_URL, f"{source_id}:{i}")) for i in range(len(chunks))]
-        payloads = [
-            {"source": source_id, "text": chunks[i].text, "page": chunks[i].page}
+        embeddings = embed_texts(texts)
+        
+        # Prepare chunk data for chunk_service
+        chunks_data = [
+            {
+                "text": chunks[i].text,
+                "page_number": chunks[i].page,
+                "chunk_index": i
+            }
             for i in range(len(chunks))
         ]
-
-        MongoDBStorage().upsert(
-            ids, vecs, payloads, 
-            scope_type=event_data.scope_type,
-            scope_id=event_data.scope_id
-        )
-        return RAGUpsertResult(ingested=len(chunks))
+        
+        # Save chunks to chunks collection
+        saved_count = save_chunks(document_id, chunks_data, embeddings)
+        
+        # Update document status to ready
+        update_document_status(document_id, DocumentStatus.READY)
+        
+        return RAGUpsertResult(ingested=saved_count)
 
     chunks_and_src = await ctx.step.run(
         "load-and-chunk", _load, output_type=RAGChunkAndSrc
     )
     ingested = await ctx.step.run(
-        "embed-and-upsert", lambda: _upsert(chunks_and_src), output_type=RAGUpsertResult
+        "embed-and-save", lambda: _embed_and_save(chunks_and_src), output_type=RAGUpsertResult
     )
     return ingested.model_dump()
 
@@ -110,14 +127,16 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     event_data = QueryPdfEventData(**ctx.event.data)
     
     def _search() -> SearchResult:
+        from chunk_search import search_for_scope
+        
         query_vec = embed_texts([event_data.question])[0]
-        store = MongoDBStorage()
-        # Use pre-filtering by scope for isolated lookup
-        result = store.search(
+        
+        # Use new chunk_search service (M2)
+        result = search_for_scope(
             query_vec, 
-            top_k=event_data.top_k, 
-            scope_type=event_data.scope_type,
-            scope_id=event_data.scope_id
+            scope_type=event_data.scope_type.value,
+            scope_id=event_data.scope_id,
+            top_k=event_data.top_k
         )
         
         contexts = []
