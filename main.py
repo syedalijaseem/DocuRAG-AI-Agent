@@ -18,8 +18,16 @@ from models import (
     ChunkWithPage,
 )
 
-
 load_dotenv()
+
+# Validate required environment variables at startup
+def _validate_env():
+    required = ["MONGODB_URI"]
+    missing = [var for var in required if not os.getenv(var)]
+    if missing:
+        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+
+_validate_env()
 
 inngest_client = inngest.Inngest(
     app_id="rag-app",
@@ -37,7 +45,7 @@ inngest_client = inngest.Inngest(
     rate_limit=inngest.RateLimit(
         limit=1,
         period=datetime.timedelta(hours=4),
-        key="event.data.source_id",
+        key="event.data.pdf_path",
     ),
 )
 async def rag_ingest_pdf(ctx: inngest.Context):
@@ -59,7 +67,7 @@ async def rag_ingest_pdf(ctx: inngest.Context):
             chunk_with_page = [
                 ChunkWithPage(text=chunk, page=i + 1) for i, chunk in enumerate(chunks)
             ]
-            return RAGChunkAndSrc(chunks=chunk_with_page, source_id=event_data.source_id)
+            return RAGChunkAndSrc(chunks=chunk_with_page, source_id=event_data.filename)
         finally:
             # Clean up temp file
             if os.path.exists(temp_path):
@@ -78,8 +86,12 @@ async def rag_ingest_pdf(ctx: inngest.Context):
             for i in range(len(chunks))
         ]
 
-        MongoDBStorage().upsert(ids, vecs, payloads, workspace_id=event_data.workspace_id)
-        return RAGUpsertResult(ingested=len(chunks), workspace_id=event_data.workspace_id)
+        MongoDBStorage().upsert(
+            ids, vecs, payloads, 
+            scope_type=event_data.scope_type,
+            scope_id=event_data.scope_id
+        )
+        return RAGUpsertResult(ingested=len(chunks))
 
     chunks_and_src = await ctx.step.run(
         "load-and-chunk", _load, output_type=RAGChunkAndSrc
@@ -100,8 +112,13 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     def _search() -> SearchResult:
         query_vec = embed_texts([event_data.question])[0]
         store = MongoDBStorage()
-        # Use pre-filtering by workspace for O(1) scoped lookup
-        result = store.search(query_vec, top_k=event_data.top_k, workspace_id=event_data.workspace_id)
+        # Use pre-filtering by scope for isolated lookup
+        result = store.search(
+            query_vec, 
+            top_k=event_data.top_k, 
+            scope_type=event_data.scope_type,
+            scope_id=event_data.scope_id
+        )
         
         contexts = []
         for i, text in enumerate(result["contexts"]):
@@ -182,11 +199,11 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
 
 app = FastAPI(title="DocuRAG API")
 
-# CORS for React frontend
+# CORS for React frontend (allow all origins in dev)
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["*"],  # For development; restrict in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -203,7 +220,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Include API routes
 from api_routes import router as api_router
+from auth_routes import router as auth_router
 app.include_router(api_router)
+app.include_router(auth_router)
 
 # Inngest integration
 inngest.fast_api.serve(app, inngest_client, [rag_ingest_pdf, rag_query_pdf_ai])

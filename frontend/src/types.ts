@@ -1,28 +1,37 @@
 /**
- * TypeScript types for the RAG application.
+ * TypeScript types for the enhanced RAG application.
  */
 
-export interface Workspace {
+// Scope types for document ownership
+export type ScopeType = "chat" | "project";
+
+export interface Project {
   id: string;
   name: string;
   created_at: string;
 }
 
-export interface Document {
-  source: string;
-  chunks: number;
+export interface Chat {
+  id: string;
+  project_id: string | null; // null = standalone chat
+  title: string;
+  is_pinned: boolean;
+  created_at: string;
 }
 
-export interface ChatSession {
+export interface Document {
   id: string;
-  workspace_id: string;
-  title: string;
-  created_at: string;
+  filename: string;
+  s3_key: string;
+  scope_type: ScopeType;
+  scope_id: string;
+  chunk_count: number;
+  uploaded_at: string;
 }
 
 export interface Message {
   id: string;
-  session_id: string;
+  chat_id: string;
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: string;
@@ -38,8 +47,57 @@ export interface QueryResponse {
 }
 
 export interface UploadResponse {
-  filename: string;
-  path: string;
-  workspace_id: string;
+  document: Document;
+  s3_url: string;
   status: string;
+}
+
+// Legacy types (for backward compatibility)
+export interface Workspace {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface ChatSession {
+  id: string;
+  workspace_id: string;
+  title: string;
+  created_at: string;
+}
+
+// --- Auth Types ---
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url: string | null;
+  email_verified: boolean;
+  created_at: string;
+  last_login: string | null;
+}
+
+export interface AuthResponse {
+  user: User;
+  is_new: boolean;
+}
+
+export interface Session {
+  id: string;
+  device_info: string | null;
+  created_at: string;
+  expires_at: string;
+  is_current: boolean;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  name: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
 }

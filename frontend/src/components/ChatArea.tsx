@@ -1,13 +1,15 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import type { Message } from "../types";
 
 interface ChatAreaProps {
   messages: Message[];
   loading: boolean;
   hasDocuments: boolean;
-  hasSession: boolean;
+  hasChat: boolean;
   input: string;
+  topK: number;
   onInputChange: (value: string) => void;
+  onTopKChange: (value: number) => void;
   onSendMessage: () => void;
   onStartChat: () => void;
 }
@@ -16,19 +18,22 @@ export function ChatArea({
   messages,
   loading,
   hasDocuments,
-  hasSession,
+  hasChat,
   input,
+  topK,
   onInputChange,
+  onTopKChange,
   onSendMessage,
   onStartChat,
 }: ChatAreaProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  if (!hasSession) {
+  if (!hasChat) {
     return (
       <main className="flex-1 flex flex-col items-center justify-center text-center text-zinc-500">
         <h2 className="text-2xl font-semibold text-white mb-2">
@@ -87,8 +92,44 @@ export function ChatArea({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
+      {/* Input Area */}
       <div className="p-4 bg-zinc-900 border-t border-zinc-800">
+        {/* Settings Toggle */}
+        <div className="mb-3 flex items-center justify-between">
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className="text-sm text-zinc-500 hover:text-zinc-300 flex items-center gap-1"
+          >
+            ⚙️ Settings {showSettings ? "▲" : "▼"}
+          </button>
+          {hasDocuments && (
+            <span className="text-xs text-zinc-600">
+              Searching top {topK} chunks
+            </span>
+          )}
+        </div>
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <div className="mb-4 p-3 bg-zinc-800 rounded-lg">
+            <label className="flex items-center justify-between text-sm">
+              <span className="text-zinc-400">Chunks (top_k):</span>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="1"
+                  max="20"
+                  value={topK}
+                  onChange={(e) => onTopKChange(parseInt(e.target.value))}
+                  className="w-24 accent-indigo-600"
+                />
+                <span className="text-white w-6 text-center">{topK}</span>
+              </div>
+            </label>
+          </div>
+        )}
+
+        {/* Message Input */}
         <div className="flex gap-3">
           <input
             type="text"

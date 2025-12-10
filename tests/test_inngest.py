@@ -7,6 +7,8 @@ import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 from pydantic import ValidationError
 
+from models import ScopeType
+
 
 class TestRagIngestPdf:
     """Tests for rag_ingest_pdf Inngest function."""
@@ -22,25 +24,19 @@ class TestRagIngestPdf:
     
     def test_ingest_validates_event_data(self, mock_context):
         """Should validate event data with Pydantic."""
-        # Missing required fields
         mock_context.event.data = {}
         
-        with patch('main.IngestPdfEventData') as mock_model:
-            mock_model.side_effect = ValidationError.from_exception_data(
-                'IngestPdfEventData',
-                [{'type': 'missing', 'loc': ('pdf_path',), 'msg': 'Field required'}]
-            )
-            
-            # The function should fail early on validation
-            from models import IngestPdfEventData
-            with pytest.raises(ValidationError):
-                IngestPdfEventData(**mock_context.event.data)
+        from models import IngestPdfEventData
+        with pytest.raises(ValidationError):
+            IngestPdfEventData(**mock_context.event.data)
     
     def test_ingest_rejects_non_pdf(self, mock_context):
         """Should reject non-PDF files."""
         mock_context.event.data = {
             "pdf_path": "/path/to/file.txt",
-            "source_id": "file.txt"
+            "filename": "file.txt",
+            "scope_type": "chat",
+            "scope_id": "chat_123"
         }
         
         from models import IngestPdfEventData
@@ -51,7 +47,9 @@ class TestRagIngestPdf:
         """Should reject path traversal attempts."""
         mock_context.event.data = {
             "pdf_path": "../../etc/passwd.pdf",
-            "source_id": "passwd.pdf"
+            "filename": "passwd.pdf",
+            "scope_type": "chat",
+            "scope_id": "chat_123"
         }
         
         from models import IngestPdfEventData
@@ -61,15 +59,17 @@ class TestRagIngestPdf:
     def test_ingest_accepts_valid_pdf(self, mock_context):
         """Should accept valid PDF path."""
         mock_context.event.data = {
-            "pdf_path": "/uploads/document.pdf",
-            "source_id": "document.pdf",
-            "workspace_id": "ws_123"
+            "pdf_path": "chats/chat_123/document.pdf",
+            "filename": "document.pdf",
+            "scope_type": "chat",
+            "scope_id": "chat_123"
         }
         
         from models import IngestPdfEventData
         data = IngestPdfEventData(**mock_context.event.data)
-        assert data.pdf_path == "/uploads/document.pdf"
-        assert data.workspace_id == "ws_123"
+        assert data.pdf_path == "chats/chat_123/document.pdf"
+        assert data.scope_type == ScopeType.CHAT
+        assert data.scope_id == "chat_123"
 
 
 class TestRagQueryPdf:
@@ -96,7 +96,12 @@ class TestRagQueryPdf:
     
     def test_query_rejects_empty_question(self, mock_context):
         """Should reject empty questions."""
-        mock_context.event.data = {"question": "   "}
+        mock_context.event.data = {
+            "question": "   ",
+            "chat_id": "chat_123",
+            "scope_type": "chat",
+            "scope_id": "chat_123"
+        }
         
         from models import QueryPdfEventData
         with pytest.raises(ValidationError, match="empty"):
@@ -106,8 +111,10 @@ class TestRagQueryPdf:
         """Should accept valid question."""
         mock_context.event.data = {
             "question": "What is machine learning?",
-            "top_k": 5,
-            "workspace_id": "ws_abc"
+            "chat_id": "chat_123",
+            "scope_type": "chat",
+            "scope_id": "chat_123",
+            "top_k": 5
         }
         
         from models import QueryPdfEventData
@@ -119,7 +126,12 @@ class TestRagQueryPdf:
         """Should recognize reset commands."""
         for cmd in ["reset", "clear", "new chat"]:
             from models import QueryPdfEventData
-            data = QueryPdfEventData(question=cmd)
+            data = QueryPdfEventData(
+                question=cmd,
+                chat_id="chat_123",
+                scope_type=ScopeType.CHAT,
+                scope_id="chat_123"
+            )
             assert data.question.lower() in ("reset", "clear", "new chat")
     
     def test_query_preserves_history(self, mock_context):
@@ -130,6 +142,9 @@ class TestRagQueryPdf:
         ]
         mock_context.event.data = {
             "question": "Follow up",
+            "chat_id": "chat_123",
+            "scope_type": "chat",
+            "scope_id": "chat_123",
             "history": history
         }
         
@@ -176,14 +191,15 @@ class TestEventDataSerialization:
         from models import IngestPdfEventData
         
         data = IngestPdfEventData(
-            pdf_path="/path/doc.pdf",
-            source_id="doc.pdf",
-            workspace_id="ws_123"
+            pdf_path="chats/chat_123/doc.pdf",
+            filename="doc.pdf",
+            scope_type=ScopeType.CHAT,
+            scope_id="chat_123"
         )
         
         d = data.model_dump()
-        assert d["pdf_path"] == "/path/doc.pdf"
-        assert d["workspace_id"] == "ws_123"
+        assert d["pdf_path"] == "chats/chat_123/doc.pdf"
+        assert d["scope_type"] == "chat"
     
     def test_query_result_to_dict(self):
         """Should serialize QueryResult for response."""

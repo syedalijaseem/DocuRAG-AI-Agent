@@ -1,15 +1,16 @@
 /**
- * API client for communicating with the FastAPI backend.
+ * API client for the enhanced RAG application.
  */
 import type {
-  Workspace,
+  Project,
+  Chat,
   Document,
-  ChatSession,
   Message,
   UploadResponse,
+  ScopeType,
 } from "./types";
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = "/api"; // Relative URL - proxied by Vite in dev, same-origin in prod
 
 /**
  * Generic fetch wrapper with error handling.
@@ -19,6 +20,7 @@ async function fetchApi<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
+    credentials: "include", // Include cookies for auth
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
@@ -36,40 +38,103 @@ async function fetchApi<T>(
   return response.json();
 }
 
-// --- Workspace API ---
+// --- Project API ---
 
-export async function createWorkspace(name: string): Promise<Workspace> {
-  return fetchApi("/workspaces", {
+export async function createProject(name: string): Promise<Project> {
+  return fetchApi("/projects", {
     method: "POST",
     body: JSON.stringify({ name }),
   });
 }
 
-export async function listWorkspaces(): Promise<Workspace[]> {
-  return fetchApi("/workspaces");
+export async function listProjects(): Promise<Project[]> {
+  return fetchApi("/projects");
 }
 
-export async function getWorkspace(workspaceId: string): Promise<Workspace> {
-  return fetchApi(`/workspaces/${workspaceId}`);
+export async function getProject(projectId: string): Promise<Project> {
+  return fetchApi(`/projects/${projectId}`);
+}
+
+export async function deleteProject(projectId: string): Promise<void> {
+  await fetchApi(`/projects/${projectId}`, { method: "DELETE" });
+}
+
+// --- Chat API ---
+
+export async function createChat(
+  projectId: string | null = null,
+  title: string = "New Chat"
+): Promise<Chat> {
+  return fetchApi("/chats", {
+    method: "POST",
+    body: JSON.stringify({ project_id: projectId, title }),
+  });
+}
+
+export async function listChats(
+  projectId?: string,
+  standalone: boolean = false
+): Promise<Chat[]> {
+  let endpoint = "/chats";
+  if (standalone) {
+    endpoint += "?standalone=true";
+  } else if (projectId) {
+    endpoint += `?project_id=${projectId}`;
+  }
+  return fetchApi(endpoint);
+}
+
+export async function getChat(chatId: string): Promise<Chat> {
+  return fetchApi(`/chats/${chatId}`);
+}
+
+export async function updateChat(
+  chatId: string,
+  updates: { title?: string; is_pinned?: boolean }
+): Promise<Chat> {
+  return fetchApi(`/chats/${chatId}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
+}
+
+export async function deleteChat(chatId: string): Promise<void> {
+  await fetchApi(`/chats/${chatId}`, { method: "DELETE" });
 }
 
 // --- Document API ---
 
-export async function listDocuments(workspaceId: string): Promise<Document[]> {
-  return fetchApi(`/workspaces/${workspaceId}/documents`);
+export async function listDocuments(
+  scopeType: ScopeType,
+  scopeId: string
+): Promise<Document[]> {
+  return fetchApi(`/documents?scope_type=${scopeType}&scope_id=${scopeId}`);
+}
+
+export async function getChatDocuments(
+  chatId: string,
+  includeProject: boolean = true
+): Promise<Document[]> {
+  return fetchApi(
+    `/chats/${chatId}/documents?include_project=${includeProject}`
+  );
 }
 
 export async function uploadDocument(
-  workspaceId: string,
+  scopeType: ScopeType,
+  scopeId: string,
   file: File
 ): Promise<UploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_BASE}/workspaces/${workspaceId}/upload`, {
-    method: "POST",
-    body: formData,
-  });
+  const response = await fetch(
+    `${API_BASE}/upload?scope_type=${scopeType}&scope_id=${scopeId}`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
 
   if (!response.ok) {
     const error = await response
@@ -81,65 +146,39 @@ export async function uploadDocument(
   return response.json();
 }
 
-// --- Session API ---
-
-export async function createSession(
-  workspaceId: string,
-  title: string = "New Chat"
-): Promise<ChatSession> {
-  return fetchApi("/sessions", {
-    method: "POST",
-    body: JSON.stringify({ workspace_id: workspaceId, title }),
-  });
-}
-
-export async function listSessions(
-  workspaceId: string
-): Promise<ChatSession[]> {
-  return fetchApi(`/workspaces/${workspaceId}/sessions`);
-}
-
-export async function getSession(
-  sessionId: string
-): Promise<ChatSession & { messages: Message[] }> {
-  return fetchApi(`/sessions/${sessionId}`);
-}
-
-export async function deleteSession(sessionId: string): Promise<void> {
-  await fetchApi(`/sessions/${sessionId}`, { method: "DELETE" });
-}
-
 // --- Message API ---
 
 export async function saveMessage(
-  sessionId: string,
+  chatId: string,
   role: "user" | "assistant",
   content: string,
   sources: string[] = []
 ): Promise<Message> {
   return fetchApi("/messages", {
     method: "POST",
-    body: JSON.stringify({ session_id: sessionId, role, content, sources }),
+    body: JSON.stringify({ chat_id: chatId, role, content, sources }),
   });
 }
 
-export async function getMessages(sessionId: string): Promise<Message[]> {
-  return fetchApi(`/sessions/${sessionId}/messages`);
+export async function getMessages(chatId: string): Promise<Message[]> {
+  return fetchApi(`/chats/${chatId}/messages`);
 }
 
-// --- Inngest Events (via FastAPI) ---
+// --- Inngest Events ---
 
 export async function sendIngestEvent(
   pdfPath: string,
-  sourceId: string,
-  workspaceId: string
+  filename: string,
+  scopeType: ScopeType,
+  scopeId: string
 ): Promise<string[]> {
   const result = await fetchApi<{ event_ids: string[] }>("/events/ingest", {
     method: "POST",
     body: JSON.stringify({
       pdf_path: pdfPath,
-      source_id: sourceId,
-      workspace_id: workspaceId,
+      filename,
+      scope_type: scopeType,
+      scope_id: scopeId,
     }),
   });
   return result.event_ids;
@@ -147,7 +186,9 @@ export async function sendIngestEvent(
 
 export async function sendQueryEvent(
   question: string,
-  workspaceId: string,
+  chatId: string,
+  scopeType: ScopeType,
+  scopeId: string,
   topK: number = 5,
   history: Array<{ role: string; content: string }> = []
 ): Promise<string[]> {
@@ -155,7 +196,9 @@ export async function sendQueryEvent(
     method: "POST",
     body: JSON.stringify({
       question,
-      workspace_id: workspaceId,
+      chat_id: chatId,
+      scope_type: scopeType,
+      scope_id: scopeId,
       top_k: topK,
       history,
     }),
@@ -195,4 +238,119 @@ export async function waitForRunOutput(
   }
 
   throw new Error("Timeout waiting for run output");
+}
+
+// --- Auth API ---
+
+import type {
+  User,
+  AuthResponse,
+  Session,
+  RegisterRequest,
+  LoginRequest,
+} from "./types";
+
+export async function register(
+  data: RegisterRequest
+): Promise<{ message: string }> {
+  return fetchApi("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function login(data: LoginRequest): Promise<AuthResponse> {
+  return fetchApi("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function logout(): Promise<{ message: string }> {
+  return fetchApi("/auth/logout", { method: "POST" });
+}
+
+export async function logoutAll(): Promise<{ message: string }> {
+  return fetchApi("/auth/logout-all", { method: "POST" });
+}
+
+export async function getCurrentUser(): Promise<{
+  user: User;
+  providers: string[];
+}> {
+  return fetchApi("/auth/me");
+}
+
+export async function updateProfile(data: {
+  name?: string;
+  avatar_url?: string;
+}): Promise<{ user: User }> {
+  return fetchApi("/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function refreshTokens(): Promise<{ message: string }> {
+  return fetchApi("/auth/refresh", { method: "POST" });
+}
+
+export async function forgotPassword(
+  email: string
+): Promise<{ message: string }> {
+  return fetchApi("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(
+  token: string,
+  newPassword: string
+): Promise<{ message: string }> {
+  return fetchApi("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ message: string }> {
+  return fetchApi("/auth/password", {
+    method: "PATCH",
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  });
+}
+
+export async function changeEmail(
+  newEmail: string,
+  password: string
+): Promise<{ message: string }> {
+  return fetchApi("/auth/email", {
+    method: "PATCH",
+    body: JSON.stringify({ new_email: newEmail, password }),
+  });
+}
+
+export async function getSessions(): Promise<{ sessions: Session[] }> {
+  return fetchApi("/auth/sessions");
+}
+
+export async function revokeSession(
+  sessionId: string
+): Promise<{ message: string }> {
+  return fetchApi(`/auth/sessions/${sessionId}`, { method: "DELETE" });
+}
+
+export async function deleteAccount(
+  password: string
+): Promise<{ message: string }> {
+  return fetchApi(`/auth/account?password=${encodeURIComponent(password)}`, {
+    method: "DELETE",
+  });
 }
