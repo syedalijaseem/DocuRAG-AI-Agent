@@ -138,16 +138,28 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     event_data = QueryPdfEventData(**ctx.event.data)
     
     def _search() -> SearchResult:
-        from chunk_search import search_for_scope
+        from chunk_search import search_for_scope, get_db
         
         query_vec = embed_texts([event_data.question])[0]
         
-        # Use new chunk_search service (M2)
+        # M3: Look up project_id for chat scopes to enable inherited search
+        project_id = None
+        include_project = True
+        
+        if event_data.scope_type.value == "chat":
+            db = get_db()
+            chat = db.chats.find_one({"id": event_data.scope_id}, {"project_id": 1})
+            if chat and chat.get("project_id"):
+                project_id = chat["project_id"]
+        
+        # Use chunk_search with project inheritance (M3)
         result = search_for_scope(
             query_vec, 
             scope_type=event_data.scope_type.value,
             scope_id=event_data.scope_id,
-            top_k=event_data.top_k
+            top_k=event_data.top_k,
+            include_project=include_project,
+            project_id=project_id
         )
         
         contexts = []

@@ -62,7 +62,8 @@ class TestRagIngestPdf:
             "pdf_path": "chats/chat_123/document.pdf",
             "filename": "document.pdf",
             "scope_type": "chat",
-            "scope_id": "chat_123"
+            "scope_id": "chat_123",
+            "document_id": "doc_abc123"
         }
         
         from models import IngestPdfEventData
@@ -70,6 +71,7 @@ class TestRagIngestPdf:
         assert data.pdf_path == "chats/chat_123/document.pdf"
         assert data.scope_type == ScopeType.CHAT
         assert data.scope_id == "chat_123"
+        assert data.document_id == "doc_abc123"
 
 
 class TestRagQueryPdf:
@@ -194,12 +196,14 @@ class TestEventDataSerialization:
             pdf_path="chats/chat_123/doc.pdf",
             filename="doc.pdf",
             scope_type=ScopeType.CHAT,
-            scope_id="chat_123"
+            scope_id="chat_123",
+            document_id="doc_abc123"
         )
         
         d = data.model_dump()
         assert d["pdf_path"] == "chats/chat_123/doc.pdf"
         assert d["scope_type"] == "chat"
+        assert d["document_id"] == "doc_abc123"
     
     def test_query_result_to_dict(self):
         """Should serialize QueryResult for response."""

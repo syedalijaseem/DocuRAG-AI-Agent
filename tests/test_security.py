@@ -26,7 +26,8 @@ class TestInputSanitization:
                 pdf_path="../../../etc/passwd",  # No .pdf extension
                 filename="passwd",
                 scope_type=ScopeType.CHAT,
-                scope_id="chat_123"
+                scope_id="chat_123",
+                document_id="doc_abc123"
             )
     
     def test_pdf_path_traversal_with_pdf_extension(self):
@@ -36,7 +37,8 @@ class TestInputSanitization:
                 pdf_path="../../../uploads/malicious.pdf",
                 filename="malicious.pdf",
                 scope_type=ScopeType.CHAT,
-                scope_id="chat_123"
+                scope_id="chat_123",
+                document_id="doc_abc123"
             )
     
     def test_pdf_path_with_null_bytes(self):
@@ -46,7 +48,8 @@ class TestInputSanitization:
                 pdf_path="/path/to/file\x00.pdf",
                 filename="file.pdf",
                 scope_type=ScopeType.CHAT,
-                scope_id="chat_123"
+                scope_id="chat_123",
+                document_id="doc_abc123"
             )
     
     def test_question_with_script_injection(self):
