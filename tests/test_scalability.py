@@ -62,7 +62,14 @@ class TestLargeDataHandling:
             for i in range(100)
         ]
         
-        data = QueryPdfEventData(question="Next question", history=history)
+        from models import ScopeType
+        data = QueryPdfEventData(
+            question="Next question",
+            chat_id="chat_123",
+            scope_type=ScopeType.CHAT,
+            scope_id="chat_123",
+            history=history
+        )
         assert len(data.history) == 100
 
 

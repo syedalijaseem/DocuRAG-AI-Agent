@@ -12,6 +12,7 @@ from models import (
     RAGChunkAndSrc,
     SearchResult,
     QueryResult,
+    ScopeType,
 )
 
 
@@ -20,12 +21,12 @@ class TestInputSanitization:
     
     def test_pdf_path_traversal_attack(self):
         """Path traversal attempts should be caught by filename validation."""
-        # While we validate .pdf extension, the actual path handling is OS-level
-        # This test documents expected behavior
         with pytest.raises(ValidationError):
             IngestPdfEventData(
                 pdf_path="../../../etc/passwd",  # No .pdf extension
-                source_id="passwd"
+                filename="passwd",
+                scope_type=ScopeType.CHAT,
+                scope_id="chat_123"
             )
     
     def test_pdf_path_traversal_with_pdf_extension(self):
@@ -33,7 +34,9 @@ class TestInputSanitization:
         with pytest.raises(ValidationError, match="path traversal"):
             IngestPdfEventData(
                 pdf_path="../../../uploads/malicious.pdf",
-                source_id="malicious.pdf"
+                filename="malicious.pdf",
+                scope_type=ScopeType.CHAT,
+                scope_id="chat_123"
             )
     
     def test_pdf_path_with_null_bytes(self):
@@ -41,47 +44,52 @@ class TestInputSanitization:
         with pytest.raises(ValidationError, match="null bytes"):
             IngestPdfEventData(
                 pdf_path="/path/to/file\x00.pdf",
-                source_id="file.pdf"
+                filename="file.pdf",
+                scope_type=ScopeType.CHAT,
+                scope_id="chat_123"
             )
     
     def test_question_with_script_injection(self):
         """Script tags in questions should be passed through (output escaping is UI responsibility)."""
-        # The model should accept this - XSS prevention is at output layer
         data = QueryPdfEventData(
-            question="<script>alert('xss')</script>What is this about?"
+            question="<script>alert('xss')</script>What is this about?",
+            chat_id="chat_123",
+            scope_type=ScopeType.CHAT,
+            scope_id="chat_123"
         )
         assert "<script>" in data.question
     
     def test_question_sql_injection_like_input(self):
         """SQL-like injection in questions should be handled safely."""
         data = QueryPdfEventData(
-            question="'; DROP TABLE documents; --"
+            question="'; DROP TABLE documents; --",
+            chat_id="chat_123",
+            scope_type=ScopeType.CHAT,
+            scope_id="chat_123"
         )
-        # MongoDB uses different syntax, but we test the input is accepted
         assert data.question == "'; DROP TABLE documents; --"
     
     def test_extremely_long_question(self):
-        """Very long questions should be handled (may want to add length limit)."""
+        """Very long questions should be handled."""
         long_question = "What is this? " * 10000
-        data = QueryPdfEventData(question=long_question)
+        data = QueryPdfEventData(
+            question=long_question,
+            chat_id="chat_123",
+            scope_type=ScopeType.CHAT,
+            scope_id="chat_123"
+        )
         assert len(data.question) > 100000
     
     def test_unicode_in_question(self):
         """Unicode characters should be handled properly."""
         data = QueryPdfEventData(
-            question="这是什么？ Что это? مرحبا 🎉"
+            question="这是什么？ Что это? مرحبا 🎉",
+            chat_id="chat_123",
+            scope_type=ScopeType.CHAT,
+            scope_id="chat_123"
         )
         assert "这是什么" in data.question
         assert "🎉" in data.question
-    
-    def test_empty_workspace_id_is_none(self):
-        """Empty string workspace_id should be allowed (treated as None)."""
-        data = IngestPdfEventData(
-            pdf_path="/path/file.pdf",
-            source_id="file.pdf",
-            workspace_id=""
-        )
-        assert data.workspace_id == ""
 
 
 class TestEdgeCases:
@@ -90,12 +98,24 @@ class TestEdgeCases:
     def test_top_k_minimum(self):
         """top_k must be at least 1."""
         with pytest.raises(ValidationError):
-            QueryPdfEventData(question="test", top_k=0)
+            QueryPdfEventData(
+                question="test",
+                chat_id="chat_123",
+                scope_type=ScopeType.CHAT,
+                scope_id="chat_123",
+                top_k=0
+            )
     
     def test_top_k_maximum(self):
         """top_k should have a reasonable maximum."""
         with pytest.raises(ValidationError):
-            QueryPdfEventData(question="test", top_k=51)  # Max is 50
+            QueryPdfEventData(
+                question="test",
+                chat_id="chat_123",
+                scope_type=ScopeType.CHAT,
+                scope_id="chat_123",
+                top_k=51
+            )
     
     def test_chunk_page_zero(self):
         """Page 0 should be invalid (1-indexed)."""
@@ -148,27 +168,55 @@ class TestMalformedData:
     def test_question_as_none(self):
         """None as question should fail validation."""
         with pytest.raises(ValidationError):
-            QueryPdfEventData(question=None)
+            QueryPdfEventData(
+                question=None,
+                chat_id="chat_123",
+                scope_type=ScopeType.CHAT,
+                scope_id="chat_123"
+            )
     
     def test_question_as_number(self):
-        """Number as question should fail (Pydantic strict mode)."""
+        """Number as question should fail."""
         with pytest.raises(ValidationError):
-            QueryPdfEventData(question=123)
+            QueryPdfEventData(
+                question=123,
+                chat_id="chat_123",
+                scope_type=ScopeType.CHAT,
+                scope_id="chat_123"
+            )
     
     def test_top_k_as_string(self):
         """String number as top_k should be coerced."""
-        data = QueryPdfEventData(question="test", top_k="5")
+        data = QueryPdfEventData(
+            question="test",
+            chat_id="chat_123",
+            scope_type=ScopeType.CHAT,
+            scope_id="chat_123",
+            top_k="5"
+        )
         assert data.top_k == 5
     
     def test_top_k_as_float(self):
-        """Float as top_k should fail validation (no fractional parts)."""
+        """Float as top_k should fail validation."""
         with pytest.raises(ValidationError):
-            QueryPdfEventData(question="test", top_k=5.9)
+            QueryPdfEventData(
+                question="test",
+                chat_id="chat_123",
+                scope_type=ScopeType.CHAT,
+                scope_id="chat_123",
+                top_k=5.9
+            )
     
     def test_history_as_non_list(self):
         """Non-list history should fail validation."""
         with pytest.raises(ValidationError):
-            QueryPdfEventData(question="test", history="not a list")
+            QueryPdfEventData(
+                question="test",
+                chat_id="chat_123",
+                scope_type=ScopeType.CHAT,
+                scope_id="chat_123",
+                history="not a list"
+            )
     
     def test_scores_as_strings(self):
         """String scores should be coerced to floats."""

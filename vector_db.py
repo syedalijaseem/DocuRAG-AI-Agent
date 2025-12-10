@@ -20,14 +20,16 @@ class MongoDBStorage:
         # Create index on 'id' field for efficient lookups
         self.collection.create_index("doc_id", unique=True, sparse=True)
     
-    def upsert(self, ids: list[str], vectors: list[list[float]], payloads: list[dict], workspace_id: str = None):
+    def upsert(self, ids: list[str], vectors: list[list[float]], payloads: list[dict], 
+               scope_type: str = None, scope_id: str = None):
         """Insert or update documents with their embeddings.
         
         Args:
             ids: Unique document chunk IDs
             vectors: Embedding vectors
             payloads: Document metadata (source, text, page, etc.)
-            workspace_id: If provided, associates documents with a workspace for scoped queries
+            scope_type: 'chat' or 'project' for document scoping
+            scope_id: The ID of the chat or project
         """
         operations = []
         for i, doc_id in enumerate(ids):
@@ -36,9 +38,10 @@ class MongoDBStorage:
                 "embedding": vectors[i],
                 **payloads[i]  # Include source, text, page, etc.
             }
-            # Add workspace_id if provided
-            if workspace_id:
-                doc["workspace_id"] = workspace_id
+            # Add scope info if provided
+            if scope_type and scope_id:
+                doc["scope_type"] = scope_type
+                doc["scope_id"] = scope_id
             operations.append(doc)
         
         # Use bulk upsert
@@ -55,14 +58,19 @@ class MongoDBStorage:
         if bulk_ops:
             self.collection.bulk_write(bulk_ops)
     
-    def search(self, query_vector: list[float], top_k: int = 5, workspace_id: str = None) -> dict:
+    def search(self, query_vector: list[float], top_k: int = 5, 
+               scope_type: str = None, scope_id: str = None, 
+               include_project: bool = True, project_id: str = None) -> dict:
         """
         Search for similar documents using MongoDB Atlas Vector Search.
         
         Args:
             query_vector: The embedding vector to search with
             top_k: Number of results to return
-            workspace_id: If provided, only search within this workspace (O(1) pre-filtering)
+            scope_type: 'chat' or 'project' for filtering
+            scope_id: The chat_id or project_id to search within
+            include_project: If True and searching a chat, also include project docs
+            project_id: The project_id to include (for project chats)
         
         Note: This requires a vector search index with filter field in MongoDB Atlas.
         """
@@ -77,9 +85,29 @@ class MongoDBStorage:
             }
         }
         
-        # Add filter if workspace_id is specified (efficient O(1) pre-filtering)
-        if workspace_id:
-            vector_search_stage["$vectorSearch"]["filter"] = {"workspace_id": workspace_id}
+        # Build filter for scope-based search
+        if scope_type and scope_id:
+            if scope_type == "project":
+                # Search only project docs
+                vector_search_stage["$vectorSearch"]["filter"] = {
+                    "scope_type": "project",
+                    "scope_id": scope_id
+                }
+            elif scope_type == "chat":
+                if include_project and project_id:
+                    # Search both chat docs and project docs
+                    vector_search_stage["$vectorSearch"]["filter"] = {
+                        "$or": [
+                            {"scope_type": "chat", "scope_id": scope_id},
+                            {"scope_type": "project", "scope_id": project_id}
+                        ]
+                    }
+                else:
+                    # Search only chat docs
+                    vector_search_stage["$vectorSearch"]["filter"] = {
+                        "scope_type": "chat",
+                        "scope_id": scope_id
+                    }
         
         pipeline = [
             vector_search_stage,
@@ -89,6 +117,7 @@ class MongoDBStorage:
                     "text": 1,
                     "source": 1,
                     "page": 1,
+                    "scope_type": 1,
                     "score": {"$meta": "vectorSearchScore"}
                 }
             }
@@ -112,6 +141,40 @@ class MongoDBStorage:
                 scores.append(score)
         
         return {"contexts": contexts, "sources": sources, "scores": scores}
+
+    def delete_by_scope(self, scope_type: str, scope_id: str) -> int:
+        """Delete all embeddings for a scope (chat or project).
+        
+        Args:
+            scope_type: 'chat' or 'project'
+            scope_id: The ID of the chat or project
+            
+        Returns:
+            Number of documents deleted
+        """
+        result = self.collection.delete_many({
+            "scope_type": scope_type,
+            "scope_id": scope_id
+        })
+        return result.deleted_count
+
+    def delete_by_source(self, source: str, scope_type: str = None, scope_id: str = None) -> int:
+        """Delete all embeddings for a specific source document.
+        
+        Args:
+            source: The source filename/path
+            scope_type: Optional scope filter
+            scope_id: Optional scope ID filter
+            
+        Returns:
+            Number of documents deleted
+        """
+        query = {"source": source}
+        if scope_type and scope_id:
+            query["scope_type"] = scope_type
+            query["scope_id"] = scope_id
+        result = self.collection.delete_many(query)
+        return result.deleted_count
 
 
 # Alias for backward compatibility
