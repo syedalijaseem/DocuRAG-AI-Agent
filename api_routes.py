@@ -307,13 +307,15 @@ def get_chat_documents(chat_id: str, include_project: bool = True):
     return docs
 
 
-# --- File Upload Endpoint ---
-
+# --- Upload Limits (easily configurable) ---
 import file_storage
+
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB per individual file
+MAX_PDFS_PER_SCOPE = 10  # Maximum number of PDFs per chat/project
+MAX_TOTAL_SIZE_PER_SCOPE = 50 * 1024 * 1024  # 50 MB total per chat/project
 
 # PDF magic bytes
 PDF_MAGIC_BYTES = [b'%PDF', b'\x25\x50\x44\x46']
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 
 def validate_pdf_content(content: bytes) -> bool:
@@ -322,6 +324,52 @@ def validate_pdf_content(content: bytes) -> bool:
         return False
     header = content[:4]
     return any(header.startswith(magic) for magic in PDF_MAGIC_BYTES)
+
+
+@router.get("/upload-limits")
+def get_upload_limits(scope_type: str, scope_id: str):
+    """Get upload limits and current usage for a scope.
+    
+    Returns max files, max total size, and current usage.
+    """
+    from models import ScopeType
+    
+    try:
+        ScopeType(scope_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="scope_type must be 'chat' or 'project'")
+    
+    db = get_db()
+    
+    # Get current usage
+    scope_docs = list(db.document_scopes.aggregate([
+        {"$match": {"scope_type": scope_type, "scope_id": scope_id}},
+        {"$lookup": {
+            "from": "documents",
+            "localField": "document_id",
+            "foreignField": "id",
+            "as": "doc"
+        }},
+        {"$unwind": "$doc"},
+        {"$group": {
+            "_id": None,
+            "count": {"$sum": 1},
+            "total_size": {"$sum": "$doc.size_bytes"}
+        }}
+    ]))
+    
+    current_count = scope_docs[0]["count"] if scope_docs else 0
+    current_size = scope_docs[0]["total_size"] if scope_docs else 0
+    
+    return {
+        "max_files": MAX_PDFS_PER_SCOPE,
+        "max_file_size": MAX_FILE_SIZE,
+        "max_total_size": MAX_TOTAL_SIZE_PER_SCOPE,
+        "current_count": current_count,
+        "current_size": current_size,
+        "remaining_count": MAX_PDFS_PER_SCOPE - current_count,
+        "remaining_size": MAX_TOTAL_SIZE_PER_SCOPE - current_size
+    }
 
 
 @router.post("/upload")
@@ -351,6 +399,32 @@ async def upload_document(
         if not db.projects.find_one({"id": scope_id}):
             raise HTTPException(status_code=404, detail="Project not found")
     
+    # Check scope limits (count and total size)
+    scope_docs = list(db.document_scopes.aggregate([
+        {"$match": {"scope_type": scope_type, "scope_id": scope_id}},
+        {"$lookup": {
+            "from": "documents",
+            "localField": "document_id",
+            "foreignField": "id",
+            "as": "doc"
+        }},
+        {"$unwind": "$doc"},
+        {"$group": {
+            "_id": None,
+            "count": {"$sum": 1},
+            "total_size": {"$sum": "$doc.size_bytes"}
+        }}
+    ]))
+    
+    current_count = scope_docs[0]["count"] if scope_docs else 0
+    current_size = scope_docs[0]["total_size"] if scope_docs else 0
+    
+    if current_count >= MAX_PDFS_PER_SCOPE:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Maximum {MAX_PDFS_PER_SCOPE} PDFs allowed per {scope_type}"
+        )
+    
     # Check file extension
     if not file.filename or not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
@@ -360,7 +434,15 @@ async def upload_document(
     
     # Check file size
     if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)}MB")
+        raise HTTPException(status_code=400, detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)}MB per file")
+    
+    # Check total size limit for scope
+    if current_size + len(content) > MAX_TOTAL_SIZE_PER_SCOPE:
+        remaining = (MAX_TOTAL_SIZE_PER_SCOPE - current_size) // (1024 * 1024)
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Total size limit exceeded. Only {remaining}MB remaining for this {scope_type}"
+        )
     
     # Validate PDF magic bytes
     if not validate_pdf_content(content):

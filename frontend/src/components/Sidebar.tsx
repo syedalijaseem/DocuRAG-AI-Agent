@@ -122,13 +122,7 @@ export function Sidebar({
                 key={doc.id || `doc-${index}`}
                 className="px-2 py-1.5 text-sm text-zinc-400 rounded flex items-center"
               >
-                <span
-                  className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
-                    doc.scope_type === "project"
-                      ? "bg-blue-500"
-                      : "bg-green-500"
-                  }`}
-                ></span>
+                <span className="w-2 h-2 rounded-full mr-2 flex-shrink-0 bg-green-500"></span>
                 <span className="truncate flex-1" title={displayName}>
                   {displayName}
                 </span>

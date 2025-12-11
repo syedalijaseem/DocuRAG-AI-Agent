@@ -40,15 +40,39 @@ export function ProjectDetailPage() {
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !id) return;
+    const files = e.target.files;
+    if (!files || files.length === 0 || !id) return;
+
+    // Convert FileList to array for parallel processing
+    const fileArray = Array.from(files);
 
     try {
-      await uploadDocument.mutateAsync({
-        scopeType: "project",
-        scopeId: id,
-        file,
-      });
+      // Upload all files in parallel
+      const uploadPromises = fileArray.map((file) =>
+        uploadDocument
+          .mutateAsync({
+            scopeType: "project",
+            scopeId: id,
+            file,
+          })
+          .catch((error) => {
+            console.error(`Upload failed for ${file.name}:`, error);
+            return { error: true, filename: file.name, message: error.message };
+          })
+      );
+
+      const results = await Promise.all(uploadPromises);
+
+      // Check for any errors
+      const errors = results.filter(
+        (r): r is { error: boolean; filename: string; message: string } =>
+          r && typeof r === "object" && "error" in r
+      );
+
+      if (errors.length > 0) {
+        const errorNames = errors.map((e) => e.filename).join(", ");
+        alert(`Some uploads failed: ${errorNames}\n${errors[0].message}`);
+      }
     } catch (error) {
       console.error("Upload failed:", error);
       alert("Upload failed");
@@ -142,6 +166,7 @@ export function ProjectDetailPage() {
             <input
               type="file"
               accept=".pdf"
+              multiple
               onChange={handleFileUpload}
               disabled={uploadDocument.isPending}
               className="hidden"

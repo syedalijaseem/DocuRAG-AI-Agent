@@ -120,6 +120,23 @@ export async function getChatDocuments(
   );
 }
 
+export interface UploadLimits {
+  max_files: number;
+  max_file_size: number;
+  max_total_size: number;
+  current_count: number;
+  current_size: number;
+  remaining_count: number;
+  remaining_size: number;
+}
+
+export async function getUploadLimits(
+  scopeType: ScopeType,
+  scopeId: string
+): Promise<UploadLimits> {
+  return fetchApi(`/upload-limits?scope_type=${scopeType}&scope_id=${scopeId}`);
+}
+
 export async function uploadDocument(
   scopeType: ScopeType,
   scopeId: string,
