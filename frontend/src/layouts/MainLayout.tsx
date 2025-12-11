@@ -43,8 +43,11 @@ export function MainLayout({ children }: MainLayoutProps) {
         className={`
           fixed inset-y-0 left-0 z-50 w-64 bg-zinc-900 border-r border-zinc-800
           transform transition-transform duration-300 ease-in-out
-          lg:relative
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          ${
+            sidebarOpen
+              ? "translate-x-0 lg:relative"
+              : "-translate-x-full lg:absolute"
+          }
         `}
       >
         <div className="flex flex-col h-full">
