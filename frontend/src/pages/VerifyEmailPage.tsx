@@ -69,13 +69,13 @@ export function VerifyEmailPage({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-100 dark:bg-zinc-950 transition-colors">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-100 dark:bg-[#242424] transition-colors">
       <div className="w-full max-w-md px-6 text-center">
         {status === "verifying" && (
           <>
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-zinc-200 dark:bg-zinc-800 mb-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neutral-200 dark:bg-[#242424] mb-6">
               <svg
-                className="animate-spin w-8 h-8 text-zinc-600 dark:text-zinc-400"
+                className="animate-spin w-8 h-8 text-zinc-600 dark:text-[#a0a0a0]"
                 viewBox="0 0 24 24"
               >
                 <circle
@@ -94,10 +94,10 @@ export function VerifyEmailPage({
                 />
               </svg>
             </div>
-            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white mb-2">
+            <h2 className="text-2xl font-semibold text-[#1a1a1a] dark:text-[#ececec] mb-2">
               Verifying your email...
             </h2>
-            <p className="text-zinc-500 dark:text-zinc-400">
+            <p className="text-[#a3a3a3] dark:text-[#a0a0a0]">
               Please wait while we verify your email address.
             </p>
           </>
@@ -120,11 +120,11 @@ export function VerifyEmailPage({
                 />
               </svg>
             </div>
-            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white mb-2">
+            <h2 className="text-2xl font-semibold text-[#1a1a1a] dark:text-[#ececec] mb-2">
               Email verified!
             </h2>
-            <p className="text-zinc-500 dark:text-zinc-400">{message}</p>
-            <p className="text-zinc-400 dark:text-zinc-500 text-sm mt-4">
+            <p className="text-[#a3a3a3] dark:text-[#a0a0a0]">{message}</p>
+            <p className="text-[#a0a0a0] dark:text-[#a3a3a3] text-sm mt-4">
               Redirecting to login...
             </p>
           </>
@@ -147,15 +147,15 @@ export function VerifyEmailPage({
                 />
               </svg>
             </div>
-            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white mb-2">
+            <h2 className="text-2xl font-semibold text-[#1a1a1a] dark:text-[#ececec] mb-2">
               Verification failed
             </h2>
-            <p className="text-zinc-500 dark:text-zinc-400 mb-6">{message}</p>
+            <p className="text-[#a3a3a3] dark:text-[#a0a0a0] mb-6">{message}</p>
             <button
               onClick={onError}
               className="py-3 px-6 rounded-xl font-medium
-                         bg-zinc-900 dark:bg-white text-white dark:text-zinc-900
-                         hover:bg-zinc-800 dark:hover:bg-zinc-100
+                         bg-neutral-800 dark:bg-[#f8f8f8] text-white dark:text-[#1a1a1a]
+                         hover:bg-neutral-800 dark:hover:bg-neutral-100
                          transition-all"
             >
               Back to login

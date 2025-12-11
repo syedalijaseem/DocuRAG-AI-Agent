@@ -29,11 +29,11 @@ export function MainLayout({ children }: MainLayoutProps) {
   ];
 
   return (
-    <div className="flex h-screen bg-zinc-950 text-white overflow-hidden">
+    <div className="flex h-screen bg-[#f8f8f8] dark:bg-[#1a1a1a] text-[#1a1a1a] dark:text-[#ececec] overflow-hidden transition-colors">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -41,7 +41,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Sidebar */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-50 w-64 bg-zinc-900 border-r border-zinc-800
+          fixed inset-y-0 left-0 z-50 w-64 bg-[#f0f0f0] dark:bg-[#1e1e1e] border-r border-[#e8e8e8] dark:border-[#2e2e2e]
           transform transition-transform duration-300 ease-in-out
           ${
             sidebarOpen
@@ -52,11 +52,13 @@ export function MainLayout({ children }: MainLayoutProps) {
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-            <h1 className="text-lg font-semibold">📚 DocuRAG</h1>
+          <div className="p-4 border-b border-[#e8e8e8] dark:border-[#2e2e2e] flex items-center justify-between">
+            <h1 className="text-lg font-semibold text-[#1a1a1a] dark:text-[#ececec]">
+              📚 DocuRAG
+            </h1>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-[#e8e8e8] dark:hover:bg-[#2a2a2a] transition-colors"
               title="Close sidebar (Ctrl+B)"
             >
               <svg
@@ -79,7 +81,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           <div className="p-3">
             <button
               onClick={() => navigate("/")}
-              className="w-full px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-medium transition-all shadow-lg shadow-indigo-500/25"
+              className="w-full px-4 py-2.5 bg-[#0d9488] hover:bg-[#0f766e] dark:bg-[#2dd4bf] dark:hover:bg-[#5eead4] text-white dark:text-[#0f2e2b] rounded-xl font-medium transition-all"
             >
               + New Chat
             </button>
@@ -95,8 +97,8 @@ export function MainLayout({ children }: MainLayoutProps) {
                   w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors
                   ${
                     location.pathname === item.path
-                      ? "bg-zinc-800 text-white"
-                      : "text-zinc-400 hover:bg-zinc-800/50 hover:text-white"
+                      ? "bg-[#e6f7f5] dark:bg-[#0f2e2b] text-[#0f766e] dark:text-[#2dd4bf]"
+                      : "text-[#525252] dark:text-[#a0a0a0] hover:bg-[#e8e8e8] dark:hover:bg-[#2a2a2a] hover:text-[#1a1a1a] dark:hover:text-[#ececec]"
                   }
                 `}
               >
@@ -108,29 +110,31 @@ export function MainLayout({ children }: MainLayoutProps) {
 
           {/* User Section */}
           {user && (
-            <div className="p-3 border-t border-zinc-800">
+            <div className="p-3 border-t border-[#e8e8e8] dark:border-[#2e2e2e]">
               <div className="flex items-center gap-3 p-2">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center text-white text-sm font-medium">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#0d9488] to-[#0f766e] dark:from-[#2dd4bf] dark:to-[#5eead4] flex items-center justify-center text-white dark:text-[#0f2e2b] text-sm font-medium">
                   {user.name?.charAt(0).toUpperCase() ||
                     user.email.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">
+                  <p className="text-sm font-medium text-[#1a1a1a] dark:text-[#ececec] truncate">
                     {user.name || "User"}
                   </p>
-                  <p className="text-xs text-zinc-500 truncate">{user.email}</p>
+                  <p className="text-xs text-[#a3a3a3] dark:text-[#6b6b6b] truncate">
+                    {user.email}
+                  </p>
                 </div>
               </div>
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={() => navigate("/settings")}
-                  className="flex-1 px-3 py-1.5 text-xs text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                  className="flex-1 px-3 py-1.5 text-xs text-[#525252] dark:text-[#a0a0a0] hover:text-[#1a1a1a] dark:hover:text-[#ececec] hover:bg-[#e8e8e8] dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
                 >
                   ⚙️ Settings
                 </button>
                 <button
                   onClick={logout}
-                  className="flex-1 px-3 py-1.5 text-xs text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-lg transition-colors"
+                  className="flex-1 px-3 py-1.5 text-xs text-[#525252] dark:text-[#a0a0a0] hover:text-[#dc2626] dark:hover:text-[#f87171] hover:bg-[#fdeaea] dark:hover:bg-[#2e1616] rounded-lg transition-colors"
                 >
                   🚪 Logout
                 </button>
@@ -144,10 +148,10 @@ export function MainLayout({ children }: MainLayoutProps) {
       <main className="flex-1 flex flex-col min-w-0">
         {/* Header (when sidebar closed) */}
         {!sidebarOpen && (
-          <header className="flex items-center gap-3 px-4 py-3 bg-zinc-900/80 backdrop-blur-md border-b border-zinc-800">
+          <header className="flex items-center gap-3 px-4 py-3 bg-[#f0f0f0]/90 dark:bg-[#1e1e1e]/90 backdrop-blur-md border-b border-[#e8e8e8] dark:border-[#2e2e2e]">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+              className="p-2 rounded-lg hover:bg-[#e8e8e8] dark:hover:bg-[#2a2a2a] transition-colors"
               title="Open sidebar (Ctrl+B)"
             >
               <svg

@@ -62,7 +62,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-100 dark:bg-zinc-950 transition-colors">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-100 dark:bg-[#242424] transition-colors">
         <div className="w-full max-w-md px-6 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 mb-6">
             <svg
@@ -79,12 +79,12 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white mb-2">
+          <h2 className="text-2xl font-semibold text-[#1a1a1a] dark:text-[#ececec] mb-2">
             Check your email
           </h2>
-          <p className="text-zinc-500 dark:text-zinc-400 mb-8">
+          <p className="text-[#a3a3a3] dark:text-[#a0a0a0] mb-8">
             We've sent a verification link to{" "}
-            <span className="font-medium text-zinc-900 dark:text-white">
+            <span className="font-medium text-[#1a1a1a] dark:text-[#ececec]">
               {email}
             </span>
             . Please verify your account to continue.
@@ -93,8 +93,8 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
             type="button"
             onClick={onSwitchToLogin}
             className="py-3 px-6 rounded-xl font-medium
-                       bg-zinc-900 dark:bg-white text-white dark:text-zinc-900
-                       hover:bg-zinc-800 dark:hover:bg-zinc-100
+                       bg-neutral-800 dark:bg-[#f8f8f8] text-white dark:text-[#1a1a1a]
+                       hover:bg-neutral-800 dark:hover:bg-neutral-100
                        transition-all"
           >
             Back to login
@@ -105,17 +105,17 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-100 dark:bg-zinc-950 transition-colors py-12">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-100 dark:bg-[#242424] transition-colors py-12">
       <div className="w-full max-w-md px-6">
         {/* Logo/Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 mb-4">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#0d9488] to-[#0f766e] mb-4">
             <span className="text-2xl">📄</span>
           </div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">
+          <h1 className="text-2xl font-semibold text-[#1a1a1a] dark:text-[#ececec]">
             Create an account
           </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 mt-1">
+          <p className="text-[#a3a3a3] dark:text-[#a0a0a0] mt-1">
             Start querying your documents with AI
           </p>
         </div>
@@ -132,7 +132,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
           <div>
             <label
               htmlFor="name"
-              className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5"
+              className="block text-sm font-medium text-neutral-700 dark:text-zinc-300 mb-1.5"
             >
               Full name
             </label>
@@ -144,10 +144,10 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
               placeholder="John Doe"
               required
               autoFocus
-              className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 
-                         bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white
-                         placeholder:text-zinc-400 dark:placeholder:text-zinc-500
-                         focus:ring-2 focus:ring-orange-500 focus:border-transparent
+              className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-[#3a3a3a] 
+                         bg-[#f8f8f8] dark:bg-[#242424] text-[#1a1a1a] dark:text-[#ececec]
+                         placeholder:text-[#a0a0a0] dark:placeholder:text-[#a3a3a3]
+                         focus:ring-2 focus:ring-[#0d9488] focus:border-transparent
                          transition-all outline-none"
             />
           </div>
@@ -155,7 +155,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5"
+              className="block text-sm font-medium text-neutral-700 dark:text-zinc-300 mb-1.5"
             >
               Email
             </label>
@@ -166,10 +166,10 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
-              className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 
-                         bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white
-                         placeholder:text-zinc-400 dark:placeholder:text-zinc-500
-                         focus:ring-2 focus:ring-orange-500 focus:border-transparent
+              className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-[#3a3a3a] 
+                         bg-[#f8f8f8] dark:bg-[#242424] text-[#1a1a1a] dark:text-[#ececec]
+                         placeholder:text-[#a0a0a0] dark:placeholder:text-[#a3a3a3]
+                         focus:ring-2 focus:ring-[#0d9488] focus:border-transparent
                          transition-all outline-none"
             />
           </div>
@@ -177,7 +177,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5"
+              className="block text-sm font-medium text-neutral-700 dark:text-zinc-300 mb-1.5"
             >
               Password
             </label>
@@ -188,13 +188,13 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
-              className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 
-                         bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white
-                         placeholder:text-zinc-400 dark:placeholder:text-zinc-500
-                         focus:ring-2 focus:ring-orange-500 focus:border-transparent
+              className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-[#3a3a3a] 
+                         bg-[#f8f8f8] dark:bg-[#242424] text-[#1a1a1a] dark:text-[#ececec]
+                         placeholder:text-[#a0a0a0] dark:placeholder:text-[#a3a3a3]
+                         focus:ring-2 focus:ring-[#0d9488] focus:border-transparent
                          transition-all outline-none"
             />
-            <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1.5 text-xs text-[#a3a3a3] dark:text-[#a0a0a0]">
               8+ characters, uppercase, lowercase, and number
             </p>
           </div>
@@ -202,7 +202,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
           <div>
             <label
               htmlFor="confirmPassword"
-              className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5"
+              className="block text-sm font-medium text-neutral-700 dark:text-zinc-300 mb-1.5"
             >
               Confirm password
             </label>
@@ -213,10 +213,10 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="••••••••"
               required
-              className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 
-                         bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white
-                         placeholder:text-zinc-400 dark:placeholder:text-zinc-500
-                         focus:ring-2 focus:ring-orange-500 focus:border-transparent
+              className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-[#3a3a3a] 
+                         bg-[#f8f8f8] dark:bg-[#242424] text-[#1a1a1a] dark:text-[#ececec]
+                         placeholder:text-[#a0a0a0] dark:placeholder:text-[#a3a3a3]
+                         focus:ring-2 focus:ring-[#0d9488] focus:border-transparent
                          transition-all outline-none"
             />
           </div>
@@ -225,8 +225,8 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
             type="submit"
             disabled={loading}
             className="w-full py-3 px-4 rounded-xl font-medium
-                       bg-zinc-900 dark:bg-white text-white dark:text-zinc-900
-                       hover:bg-zinc-800 dark:hover:bg-zinc-100
+                       bg-neutral-800 dark:bg-[#f8f8f8] text-white dark:text-[#1a1a1a]
+                       hover:bg-neutral-800 dark:hover:bg-neutral-100
                        disabled:opacity-50 disabled:cursor-not-allowed
                        transition-all"
           >
@@ -259,10 +259,10 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
         {/* Divider */}
         <div className="relative my-8">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-zinc-200 dark:border-zinc-800" />
+            <div className="w-full border-t border-[#e8e8e8] dark:border-[#3a3a3a]" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-zinc-100 dark:bg-zinc-950 text-zinc-500">
+            <span className="px-4 bg-neutral-100 dark:bg-[#242424] text-[#a3a3a3]">
               or continue with
             </span>
           </div>
@@ -273,10 +273,10 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
           type="button"
           onClick={() => (window.location.href = "/api/auth/google")}
           className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl
-                     border border-zinc-300 dark:border-zinc-700 
-                     bg-white dark:bg-zinc-900 
-                     text-zinc-700 dark:text-zinc-300
-                     hover:bg-zinc-50 dark:hover:bg-zinc-800
+                     border border-zinc-300 dark:border-[#3a3a3a] 
+                     bg-[#f8f8f8] dark:bg-[#242424] 
+                     text-neutral-700 dark:text-zinc-300
+                     hover:bg-zinc-50 dark:hover:bg-neutral-800
                      transition-all"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -301,12 +301,12 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
         </button>
 
         {/* Switch to Login */}
-        <p className="text-center text-sm text-zinc-500 dark:text-zinc-400 mt-6">
+        <p className="text-center text-sm text-[#a3a3a3] dark:text-[#a0a0a0] mt-6">
           Already have an account?{" "}
           <button
             type="button"
             onClick={onSwitchToLogin}
-            className="font-medium text-orange-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+            className="font-medium text-[#0d9488] hover:text-[#0f766e] dark:hover:text-[#5eead4] transition-colors"
           >
             Sign in
           </button>

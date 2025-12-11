@@ -51,7 +51,7 @@ export function ChatsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-zinc-500">Loading chats...</div>
+        <div className="text-[#a3a3a3]">Loading chats...</div>
       </div>
     );
   }
@@ -65,7 +65,7 @@ export function ChatsPage() {
           <button
             onClick={handleNewChat}
             disabled={createChat.isPending}
-            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-medium transition-all disabled:opacity-50"
+            className="px-4 py-2 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white rounded-xl font-medium transition-all disabled:opacity-50"
           >
             + New Chat
           </button>
@@ -78,19 +78,19 @@ export function ChatsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search your chats..."
-            className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+            className="w-full px-4 py-3 bg-[#f8f8f8] dark:bg-[#242424] border border-zinc-300 dark:border-[#3a3a3a] rounded-xl text-[#1a1a1a] dark:text-[#ececec] placeholder-zinc-400 dark:placeholder-[#a3a3a3] focus:outline-none focus:border-[#0d9488]"
           />
         </div>
 
         {/* Chat Count */}
-        <div className="text-sm text-zinc-500 mb-4">
+        <div className="text-sm text-[#a3a3a3] mb-4">
           {filteredChats.length} chat{filteredChats.length !== 1 ? "s" : ""}
         </div>
 
         {/* Chat List */}
         <div className="space-y-2">
           {filteredChats.length === 0 ? (
-            <div className="text-center py-12 text-zinc-500">
+            <div className="text-center py-12 text-[#a3a3a3]">
               {search
                 ? "No chats match your search"
                 : "No chats yet. Start a new one!"}
@@ -100,7 +100,7 @@ export function ChatsPage() {
               <div
                 key={chat.id}
                 onClick={() => navigate(`/chat/${chat.id}`)}
-                className="group flex items-center justify-between p-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl cursor-pointer transition-colors"
+                className="group flex items-center justify-between p-4 bg-[#f8f8f8] dark:bg-[#242424] hover:bg-zinc-50 dark:hover:bg-neutral-800 border border-[#e8e8e8] dark:border-[#3a3a3a] rounded-xl cursor-pointer transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -109,21 +109,21 @@ export function ChatsPage() {
                     )}
                     <h3 className="font-medium truncate">{chat.title}</h3>
                   </div>
-                  <p className="text-sm text-zinc-500 mt-1">
+                  <p className="text-sm text-[#a3a3a3] mt-1">
                     {new Date(chat.updated_at).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => handlePinChat(chat.id, chat.is_pinned, e)}
-                    className="p-2 hover:bg-zinc-700 rounded-lg transition-colors"
+                    className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-colors"
                     title={chat.is_pinned ? "Unpin" : "Pin"}
                   >
                     {chat.is_pinned ? "📌" : "📍"}
                   </button>
                   <button
                     onClick={(e) => handleDeleteChat(chat.id, e)}
-                    className="p-2 hover:bg-red-900/50 text-red-400 rounded-lg transition-colors"
+                    className="p-2 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-500 dark:text-red-400 rounded-lg transition-colors"
                     title="Delete"
                   >
                     🗑️

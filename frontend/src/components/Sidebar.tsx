@@ -47,29 +47,29 @@ export function Sidebar({
   const unpinnedChats = standaloneChats.filter((c) => !c.is_pinned);
 
   return (
-    <aside className="w-72 bg-zinc-900 border-r border-zinc-800 flex flex-col overflow-hidden">
+    <aside className="w-72 bg-neutral-800 border-r border-neutral-800 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="p-5 border-b border-zinc-800">
+      <div className="p-5 border-b border-neutral-800">
         <h1 className="text-xl font-semibold">📚 DocuRAG</h1>
       </div>
 
       {/* New Chat Button */}
       <button
         onClick={onNewChat}
-        className="mx-4 my-3 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
+        className="mx-4 my-3 px-4 py-3 bg-[#0d9488] hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
       >
         + New Chat
       </button>
 
       {/* Projects Section */}
-      <div className="p-4 border-b border-zinc-800">
+      <div className="p-4 border-b border-neutral-800">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
             📁 Projects
           </h3>
           <button
             onClick={onNewProject}
-            className="text-xs text-indigo-400 hover:text-indigo-300"
+            className="text-xs text-[#2dd4bf] hover:text-indigo-300"
           >
             + New
           </button>
@@ -83,8 +83,8 @@ export function Sidebar({
                 group flex justify-between items-center px-3 py-2 rounded-lg cursor-pointer transition-colors
                 ${
                   currentProjectId === project.id
-                    ? "bg-zinc-800 border-l-2 border-indigo-500"
-                    : "hover:bg-zinc-800/50"
+                    ? "bg-neutral-800 border-l-2 border-teal-500"
+                    : "hover:bg-neutral-800/50"
                 }
               `}
             >
@@ -95,11 +95,11 @@ export function Sidebar({
       </div>
 
       {/* Documents Section (context-aware) */}
-      <div className="p-4 border-b border-zinc-800">
+      <div className="p-4 border-b border-neutral-800">
         <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
           📄 Documents
         </h3>
-        <label className="block p-3 bg-zinc-800/50 border border-dashed border-zinc-700 rounded-md text-sm text-zinc-400 cursor-pointer text-center hover:border-indigo-500 hover:text-indigo-400 transition-colors">
+        <label className="block p-3 bg-neutral-800/50 border border-dashed border-neutral-700 rounded-md text-sm text-zinc-400 cursor-pointer text-center hover:border-teal-500 hover:text-[#2dd4bf] transition-colors">
           {uploading ? "Uploading..." : "+ Upload PDF"}
           <input
             type="file"
@@ -193,7 +193,7 @@ export function Sidebar({
 
       {/* User Section */}
       {user && (
-        <div className="p-4 border-t border-zinc-800 mt-auto">
+        <div className="p-4 border-t border-neutral-800 mt-auto">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center text-white text-sm font-medium">
               {user.name?.charAt(0).toUpperCase() ||
@@ -209,13 +209,13 @@ export function Sidebar({
           <div className="flex gap-2">
             <button
               onClick={onSettings}
-              className="flex-1 px-3 py-1.5 text-xs text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+              className="flex-1 px-3 py-1.5 text-xs text-zinc-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors"
             >
               ⚙️ Settings
             </button>
             <button
               onClick={onLogout}
-              className="flex-1 px-3 py-1.5 text-xs text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-lg transition-colors"
+              className="flex-1 px-3 py-1.5 text-xs text-zinc-400 hover:text-red-400 hover:bg-neutral-800 rounded-lg transition-colors"
             >
               🚪 Logout
             </button>
@@ -248,8 +248,8 @@ function ChatItem({
         group flex justify-between items-center px-3 py-2.5 rounded-lg cursor-pointer transition-colors
         ${
           isActive
-            ? "bg-zinc-800 border-l-2 border-indigo-500"
-            : "hover:bg-zinc-800/50"
+            ? "bg-neutral-800 border-l-2 border-teal-500"
+            : "hover:bg-neutral-800/50"
         }
       `}
     >

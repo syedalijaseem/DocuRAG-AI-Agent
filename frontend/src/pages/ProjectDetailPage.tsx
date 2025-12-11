@@ -82,7 +82,7 @@ export function ProjectDetailPage() {
   if (projectLoading || chatsLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-zinc-500">Loading project...</div>
+        <div className="text-[#a3a3a3]">Loading project...</div>
       </div>
     );
   }
@@ -90,7 +90,7 @@ export function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-zinc-500">Project not found</div>
+        <div className="text-[#a3a3a3]">Project not found</div>
       </div>
     );
   }
@@ -100,10 +100,10 @@ export function ProjectDetailPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="p-4 border-b border-zinc-800">
+        <header className="p-4 border-b border-[#e8e8e8] dark:border-[#3a3a3a]">
           <button
             onClick={() => navigate("/projects")}
-            className="text-sm text-zinc-500 hover:text-white mb-2 flex items-center gap-1"
+            className="text-sm text-[#a3a3a3] hover:text-[#1a1a1a] dark:hover:text-white mb-2 flex items-center gap-1"
           >
             ← All projects
           </button>
@@ -111,20 +111,20 @@ export function ProjectDetailPage() {
         </header>
 
         {/* Reply Input */}
-        <div className="p-4 border-b border-zinc-800">
+        <div className="p-4 border-b border-[#e8e8e8] dark:border-[#3a3a3a]">
           <div className="flex gap-2">
             <input
               type="text"
               value={replyInput}
               onChange={(e) => setReplyInput(e.target.value)}
               placeholder="Reply..."
-              className="flex-1 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+              className="flex-1 px-4 py-3 bg-neutral-100 dark:bg-[#242424] border border-zinc-300 dark:border-[#3a3a3a] rounded-xl text-[#1a1a1a] dark:text-[#ececec] placeholder-zinc-400 dark:placeholder-[#a3a3a3] focus:outline-none focus:border-[#0d9488]"
               onKeyDown={(e) => e.key === "Enter" && handleStartChat()}
             />
             <button
               onClick={handleStartChat}
               disabled={!replyInput.trim() || createChat.isPending}
-              className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl transition-colors"
+              className="px-4 py-3 bg-[#0d9488] hover:bg-[#14b8a6] disabled:opacity-50 text-white rounded-xl transition-colors"
             >
               ➤
             </button>
@@ -134,7 +134,7 @@ export function ProjectDetailPage() {
         {/* Chats List */}
         <div className="flex-1 overflow-auto p-4">
           {chats.length === 0 ? (
-            <div className="text-center py-12 text-zinc-500">
+            <div className="text-center py-12 text-[#a3a3a3]">
               No chats in this project yet. Start a conversation above!
             </div>
           ) : (
@@ -143,10 +143,10 @@ export function ProjectDetailPage() {
                 <div
                   key={chat.id}
                   onClick={() => navigate(`/chat/${chat.id}`)}
-                  className="p-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl cursor-pointer transition-colors"
+                  className="p-4 bg-[#f8f8f8] dark:bg-[#242424] hover:bg-zinc-50 dark:hover:bg-neutral-800 border border-[#e8e8e8] dark:border-[#3a3a3a] rounded-xl cursor-pointer transition-colors"
                 >
                   <h3 className="font-medium">{chat.title}</h3>
-                  <p className="text-sm text-zinc-500 mt-1">
+                  <p className="text-sm text-[#a3a3a3] mt-1">
                     Last message{" "}
                     {new Date(chat.updated_at).toLocaleDateString()}
                   </p>
@@ -158,11 +158,11 @@ export function ProjectDetailPage() {
       </div>
 
       {/* Files Panel */}
-      <aside className="w-72 border-l border-zinc-800 hidden lg:flex flex-col">
-        <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+      <aside className="w-72 border-l border-[#e8e8e8] dark:border-[#3a3a3a] hidden lg:flex flex-col">
+        <div className="p-4 border-b border-[#e8e8e8] dark:border-[#3a3a3a] flex items-center justify-between">
           <h2 className="font-semibold">Files</h2>
-          <label className="cursor-pointer p-2 hover:bg-zinc-800 rounded-lg transition-colors">
-            <span className="text-indigo-400">+</span>
+          <label className="cursor-pointer p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors">
+            <span className="text-[#0d9488] dark:text-[#2dd4bf]">+</span>
             <input
               type="file"
               accept=".pdf"
@@ -176,17 +176,17 @@ export function ProjectDetailPage() {
 
         <div className="flex-1 overflow-auto p-4">
           {uploadDocument.isPending && (
-            <div className="text-sm text-zinc-500 mb-4 animate-pulse">
+            <div className="text-sm text-[#a3a3a3] mb-4 animate-pulse">
               Uploading...
             </div>
           )}
 
           {documentsLoading ? (
-            <div className="text-sm text-zinc-500 text-center py-4">
+            <div className="text-sm text-[#a3a3a3] text-center py-4">
               Loading files...
             </div>
           ) : documents.length === 0 ? (
-            <div className="text-sm text-zinc-500 text-center py-8">
+            <div className="text-sm text-[#a3a3a3] text-center py-8">
               Upload PDFs to make them available in all project chats
             </div>
           ) : (
@@ -194,12 +194,12 @@ export function ProjectDetailPage() {
               {documents.map((doc) => (
                 <div
                   key={doc.id}
-                  className="p-3 bg-zinc-900 border border-zinc-700/50 rounded-lg text-sm"
+                  className="p-3 bg-neutral-800 border border-neutral-700/50 rounded-lg text-sm"
                 >
                   <div className="font-medium truncate" title={doc.filename}>
                     {doc.filename}
                   </div>
-                  <div className="text-xs text-zinc-500 mt-1 flex justify-between">
+                  <div className="text-xs text-[#a3a3a3] mt-1 flex justify-between">
                     <span>
                       {new Date(doc.uploaded_at).toLocaleDateString()}
                     </span>

@@ -45,7 +45,7 @@ export function ChatArea({
         ) : (
           <button
             onClick={onStartChat}
-            className="mt-4 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
+            className="mt-4 px-6 py-3 bg-[#0d9488] hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
           >
             Start a new chat
           </button>
@@ -55,7 +55,7 @@ export function ChatArea({
   }
 
   return (
-    <main className="flex-1 flex flex-col bg-zinc-950">
+    <main className="flex-1 flex flex-col bg-neutral-800">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.map((msg) => (
@@ -63,8 +63,8 @@ export function ChatArea({
             key={msg.id}
             className={`max-w-[80%] p-4 rounded-xl animate-fade-in ${
               msg.role === "user"
-                ? "ml-auto bg-indigo-600 text-white rounded-br-sm"
-                : "mr-auto bg-zinc-800 border border-zinc-700 rounded-bl-sm"
+                ? "ml-auto bg-[#0d9488] text-white rounded-br-sm"
+                : "mr-auto bg-neutral-800 border border-neutral-700 rounded-bl-sm"
             }`}
           >
             <div className="whitespace-pre-wrap break-words">{msg.content}</div>
@@ -84,7 +84,7 @@ export function ChatArea({
         ))}
 
         {loading && (
-          <div className="max-w-[80%] mr-auto p-4 bg-zinc-800 border border-zinc-700 rounded-xl rounded-bl-sm">
+          <div className="max-w-[80%] mr-auto p-4 bg-neutral-800 border border-neutral-700 rounded-xl rounded-bl-sm">
             <span className="text-zinc-400 italic">Thinking...</span>
           </div>
         )}
@@ -93,7 +93,7 @@ export function ChatArea({
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-zinc-900 border-t border-zinc-800">
+      <div className="p-4 bg-neutral-800 border-t border-neutral-800">
         {/* Settings Toggle */}
         <div className="mb-3 flex items-center justify-between">
           <button
@@ -111,7 +111,7 @@ export function ChatArea({
 
         {/* Settings Panel */}
         {showSettings && (
-          <div className="mb-4 p-3 bg-zinc-800 rounded-lg">
+          <div className="mb-4 p-3 bg-neutral-800 rounded-lg">
             <label className="flex items-center justify-between text-sm">
               <span className="text-zinc-400">Chunks (top_k):</span>
               <div className="flex items-center gap-3">
@@ -121,7 +121,7 @@ export function ChatArea({
                   max="20"
                   value={topK}
                   onChange={(e) => onTopKChange(parseInt(e.target.value))}
-                  className="w-24 accent-indigo-600"
+                  className="w-24 accent-teal-600"
                 />
                 <span className="text-white w-6 text-center">{topK}</span>
               </div>
@@ -138,12 +138,12 @@ export function ChatArea({
             onKeyDown={(e) => e.key === "Enter" && onSendMessage()}
             placeholder="Ask a question about your documents..."
             disabled={loading || !hasDocuments}
-            className="flex-1 px-4 py-3 bg-zinc-950 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+            className="flex-1 px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-[#0d9488] disabled:opacity-50"
           />
           <button
             onClick={onSendMessage}
             disabled={loading || !input.trim()}
-            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-600/50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+            className="px-6 py-3 bg-[#0d9488] hover:bg-indigo-700 disabled:bg-[#0d9488]/50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
           >
             Send
           </button>

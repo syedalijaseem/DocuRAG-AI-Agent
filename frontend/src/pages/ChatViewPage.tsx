@@ -155,7 +155,7 @@ export function ChatViewPage() {
   if (!id) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-zinc-500">Select or create a chat</div>
+        <div className="text-[#a3a3a3]">Select or create a chat</div>
       </div>
     );
   }
@@ -165,16 +165,16 @@ export function ChatViewPage() {
       {/* Messages */}
       <div className="flex-1 overflow-auto p-4 space-y-4">
         {messagesLoading ? (
-          <div className="text-center text-zinc-500">Loading messages...</div>
+          <div className="text-center text-[#a3a3a3]">Loading messages...</div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center mb-4">
               <span className="text-3xl">📚</span>
             </div>
             <h2 className="text-xl font-semibold mb-2">
               Start your conversation
             </h2>
-            <p className="text-zinc-500 mb-4">
+            <p className="text-[#a3a3a3] mb-4">
               {documents.length === 0
                 ? "Upload a PDF to get started"
                 : "Ask a question about your documents"}
@@ -186,8 +186,8 @@ export function ChatViewPage() {
               key={msg.id}
               className={`max-w-[85%] p-4 rounded-2xl ${
                 msg.role === "user"
-                  ? "ml-auto bg-gradient-to-br from-indigo-600 to-violet-600 text-white"
-                  : "mr-auto bg-zinc-800 border border-zinc-700"
+                  ? "ml-auto bg-gradient-to-br from-teal-600 to-teal-700 text-white"
+                  : "mr-auto bg-[#f8f8f8] dark:bg-[#242424] border border-[#e8e8e8] dark:border-[#3a3a3a]"
               }`}
             >
               <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -196,7 +196,7 @@ export function ChatViewPage() {
                   <summary className="cursor-pointer text-zinc-300/80 hover:text-white">
                     📚 Sources ({msg.sources.length})
                   </summary>
-                  <ul className="mt-2 pl-5 text-zinc-400 list-disc">
+                  <ul className="mt-2 pl-5 text-[#a0a0a0] list-disc">
                     {msg.sources.map((src, i) => (
                       <li key={i} className="text-xs">
                         {src}
@@ -210,20 +210,20 @@ export function ChatViewPage() {
         )}
 
         {sending && (
-          <div className="max-w-[85%] p-4 rounded-2xl mr-auto bg-zinc-800 border border-zinc-700">
+          <div className="max-w-[85%] p-4 rounded-2xl mr-auto bg-[#f8f8f8] dark:bg-[#242424] border border-[#e8e8e8] dark:border-[#3a3a3a]">
             <div className="flex items-center gap-2">
               <div className="flex gap-1">
-                <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" />
+                <span className="w-2 h-2 bg-[#14b8a6] rounded-full animate-bounce" />
                 <span
-                  className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"
+                  className="w-2 h-2 bg-[#14b8a6] rounded-full animate-bounce"
                   style={{ animationDelay: "0.15s" }}
                 />
                 <span
-                  className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"
+                  className="w-2 h-2 bg-[#14b8a6] rounded-full animate-bounce"
                   style={{ animationDelay: "0.3s" }}
                 />
               </div>
-              <span className="text-zinc-400 text-sm">Thinking...</span>
+              <span className="text-[#a0a0a0] text-sm">Thinking...</span>
             </div>
           </div>
         )}
@@ -232,16 +232,16 @@ export function ChatViewPage() {
       </div>
 
       {/* Input Area */}
-      <div className="p-4 border-t border-zinc-800 bg-zinc-900">
+      <div className="p-4 border-t border-[#e8e8e8] dark:border-[#3a3a3a] bg-[#f8f8f8] dark:bg-[#242424]">
         {/* Settings Toggle */}
         <div className="flex items-center justify-between mb-3">
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="text-sm text-zinc-500 hover:text-white flex items-center gap-1"
+            className="text-sm text-[#a3a3a3] hover:text-[#1a1a1a] dark:hover:text-white flex items-center gap-1"
           >
             ⚙️ Settings {showSettings ? "▲" : "▼"}
           </button>
-          <span className="text-xs text-zinc-600">
+          <span className="text-xs text-[#a3a3a3] dark:text-zinc-600">
             {documents.length} document{documents.length !== 1 ? "s" : ""} • Top{" "}
             {topK}
           </span>
@@ -249,9 +249,9 @@ export function ChatViewPage() {
 
         {/* Settings Panel */}
         {showSettings && (
-          <div className="mb-4 p-4 bg-zinc-800 rounded-xl space-y-4">
+          <div className="mb-4 p-4 bg-neutral-100 dark:bg-[#242424] rounded-xl space-y-4">
             <label className="flex items-center justify-between text-sm">
-              <span className="text-zinc-400">Chunks (top_k):</span>
+              <span className="text-[#a0a0a0]">Chunks (top_k):</span>
               <div className="flex items-center gap-3">
                 <input
                   type="range"
@@ -259,18 +259,18 @@ export function ChatViewPage() {
                   max="20"
                   value={topK}
                   onChange={(e) => setTopK(parseInt(e.target.value))}
-                  className="w-24 accent-indigo-500"
+                  className="w-24 accent-teal-500"
                 />
                 <span className="text-white w-6 text-center">{topK}</span>
               </div>
             </label>
 
-            <div className="border-t border-zinc-700 pt-3">
-              <span className="text-sm text-zinc-400 block mb-2">
+            <div className="border-t border-[#e8e8e8] dark:border-[#3a3a3a] pt-3">
+              <span className="text-sm text-[#a0a0a0] block mb-2">
                 Attached Documents
               </span>
               {documents.length === 0 ? (
-                <div className="text-sm text-zinc-500 italic">
+                <div className="text-sm text-[#a3a3a3] italic">
                   No documents attached
                 </div>
               ) : (
@@ -278,7 +278,7 @@ export function ChatViewPage() {
                   {documents.map((doc) => (
                     <div
                       key={doc.id}
-                      className="flex items-center justify-between text-sm bg-zinc-900 p-2 rounded-lg"
+                      className="flex items-center justify-between text-sm bg-[#f8f8f8] dark:bg-[#242424] p-2 rounded-lg"
                     >
                       <span
                         className="truncate text-zinc-300 max-w-[200px]"
@@ -286,7 +286,7 @@ export function ChatViewPage() {
                       >
                         {doc.filename}
                       </span>
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-[#a3a3a3]">
                         {new Date(doc.uploaded_at).toLocaleDateString()}
                       </span>
                     </div>
@@ -310,7 +310,7 @@ export function ChatViewPage() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadDocument.isPending}
-            className="p-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors disabled:opacity-50"
+            className="p-3 rounded-xl bg-neutral-100 dark:bg-[#242424] hover:bg-neutral-200 dark:hover:bg-neutral-700 text-zinc-600 dark:text-[#a0a0a0] hover:text-[#1a1a1a] dark:hover:text-white transition-colors disabled:opacity-50"
             title="Attach PDF"
           >
             {uploadDocument.isPending ? "⏳" : "📎"}
@@ -327,13 +327,13 @@ export function ChatViewPage() {
                 : "Upload a document first..."
             }
             disabled={sending || documents.length === 0}
-            className="flex-1 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+            className="flex-1 px-4 py-3 bg-neutral-100 dark:bg-[#242424] border border-zinc-300 dark:border-[#3a3a3a] rounded-xl text-[#1a1a1a] dark:text-[#ececec] placeholder-zinc-400 dark:placeholder-[#a3a3a3] focus:outline-none focus:border-[#0d9488] disabled:opacity-50"
           />
 
           <button
             onClick={handleSend}
             disabled={!input.trim() || sending || documents.length === 0}
-            className="p-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 text-white rounded-xl transition-all"
+            className="p-3 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 disabled:opacity-50 text-white rounded-xl transition-all"
           >
             ➤
           </button>
