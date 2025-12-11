@@ -8,10 +8,13 @@ load_dotenv()
 class MongoDBStorage:
     """Vector storage using MongoDB Atlas with vector search capabilities."""
     
-    def __init__(self, collection_name: str = "documents", db_name: str = "rag_db"):
+    def __init__(self, collection_name: str = "documents", db_name: str = None):
         uri = os.getenv("MONGODB_URI")
         if not uri:
             raise ValueError("MONGODB_URI environment variable is not set")
+        
+        if db_name is None:
+            db_name = os.getenv("MONGODB_DATABASE", "docurag")
         
         self.client = MongoClient(uri)
         self.db = self.client[db_name]

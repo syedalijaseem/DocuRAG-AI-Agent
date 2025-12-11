@@ -325,7 +325,7 @@ class Chunk(BaseModel):
     chunk_index: int = Field(ge=0)  # Position in document (0-indexed)
     page_number: int = Field(ge=1)  # Source page (1-indexed)
     text: str
-    embedding: list[float] = Field(default_factory=list)  # 1536-dim vector
+    embedding: list[float] = Field(default_factory=list)  # 3072-dim vector (text-embedding-3-large)
     
     @field_validator('text')
     @classmethod
@@ -339,8 +339,8 @@ class Chunk(BaseModel):
     @classmethod
     def validate_embedding(cls, v: list[float]) -> list[float]:
         """Validate embedding dimensions (if provided)."""
-        if v and len(v) != 1536:
-            raise ValueError('Embedding must have 1536 dimensions')
+        if v and len(v) != 3072:
+            raise ValueError('Embedding must have 3072 dimensions')
         return v
 
 

@@ -18,7 +18,7 @@ def setup_auth_indexes():
         return False
     
     client = MongoClient(uri)
-    db = client["rag_db"]
+    db = client[os.getenv("MONGODB_DATABASE", "docurag")]
     
     print("Setting up authentication indexes...")
     

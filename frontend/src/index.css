@@ -1,1 +1,28 @@
 @import "tailwindcss";
+
+/* Enable class-based dark mode for theme toggle */
+@custom-variant dark (&:is(.dark *));
+
+/* Smooth theme transitions */
+html {
+  color-scheme: dark;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}

@@ -40,6 +40,9 @@ def get_document_ids_for_scope(
     """
     db = get_db()
     
+    print(f"[SEARCH] get_document_ids_for_scope called")
+    print(f"[SEARCH] scope_type={scope_type}, scope_id={scope_id}, include_project={include_project}, project_id={project_id}")
+    
     # Build query for DocumentScope
     if scope_type == "project":
         query = {"scope_type": "project", "scope_id": scope_id}
@@ -55,11 +58,17 @@ def get_document_ids_for_scope(
         else:
             query = {"scope_type": "chat", "scope_id": scope_id}
     else:
+        print(f"[SEARCH] Unknown scope_type: {scope_type}")
         return []
+    
+    print(f"[SEARCH] Query: {query}")
     
     # Get document_ids from document_scopes
     scopes = list(db.document_scopes.find(query, {"document_id": 1}))
+    print(f"[SEARCH] Found {len(scopes)} scope records")
+    
     document_ids = list(set(s["document_id"] for s in scopes))
+    print(f"[SEARCH] Unique document_ids: {document_ids}")
     
     return document_ids
 

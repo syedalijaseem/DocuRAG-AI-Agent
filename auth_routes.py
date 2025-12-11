@@ -45,7 +45,7 @@ def get_db():
     if not uri:
         raise HTTPException(status_code=500, detail="Database not configured")
     client = MongoClient(uri)
-    return client["rag_db"]
+    return client[os.getenv("MONGODB_DATABASE", "docurag")]
 
 
 # --- Cookie Configuration ---

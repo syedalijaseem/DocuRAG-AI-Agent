@@ -60,18 +60,28 @@ async def rag_ingest_pdf(ctx: inngest.Context):
     event_data = IngestPdfEventData(**ctx.event.data)
     document_id = event_data.document_id
     
+    print(f"[INGEST] ========== Starting ingestion ==========")
+    print(f"[INGEST] Document ID: {document_id}")
+    print(f"[INGEST] Filename: {event_data.filename}")
+    print(f"[INGEST] PDF Path (S3 Key): {event_data.pdf_path}")
+    print(f"[INGEST] Scope: {event_data.scope_type} / {event_data.scope_id}")
+    
     def _load() -> RAGChunkAndSrc:
         import file_storage
         import os
         from chunk_service import update_document_status
         from models import DocumentStatus
         
+        print(f"[INGEST] Step 1: Downloading PDF from S3...")
         # Download PDF from S3 to temp file
         temp_path = file_storage.download_to_temp(event_data.pdf_path)
+        print(f"[INGEST] Downloaded to: {temp_path}")
         
         try:
             # load_and_chunk_pdf extracts text chunks
+            print(f"[INGEST] Step 2: Parsing PDF and chunking...")
             chunks = load_and_chunk_pdf(temp_path)
+            print(f"[INGEST] Extracted {len(chunks)} chunks from PDF")
             
             # Validate we got content
             if not chunks:
@@ -81,11 +91,12 @@ async def rag_ingest_pdf(ctx: inngest.Context):
             chunk_with_page = [
                 ChunkWithPage(text=chunk, page=i + 1) for i, chunk in enumerate(chunks)
             ]
+            print(f"[INGEST] Step 2 complete: {len(chunk_with_page)} chunks with page info")
             return RAGChunkAndSrc(chunks=chunk_with_page, source_id=event_data.filename)
         except Exception as e:
             # Log error and leave status as pending for retry
             # In production, could set status to 'error' after max retries
-            print(f"PDF parsing error for {event_data.filename}: {e}")
+            print(f"[INGEST] ERROR: PDF parsing failed for {event_data.filename}: {e}")
             raise
         finally:
             # Clean up temp file
@@ -98,10 +109,12 @@ async def rag_ingest_pdf(ctx: inngest.Context):
         from models import DocumentStatus
         
         chunks = chunks_and_src.chunks
+        print(f"[INGEST] Step 3: Embedding {len(chunks)} chunks...")
         
         # Get text for embedding
         texts = [c.text for c in chunks]
         embeddings = embed_texts(texts)
+        print(f"[INGEST] Generated {len(embeddings)} embeddings, dim={len(embeddings[0]) if embeddings else 0}")
         
         # Prepare chunk data for chunk_service
         chunks_data = [
@@ -114,10 +127,14 @@ async def rag_ingest_pdf(ctx: inngest.Context):
         ]
         
         # Save chunks to chunks collection
+        print(f"[INGEST] Step 4: Saving chunks to MongoDB...")
         saved_count = save_chunks(document_id, chunks_data, embeddings)
+        print(f"[INGEST] Saved {saved_count} chunks to chunks collection")
         
         # Update document status to ready
+        print(f"[INGEST] Step 5: Updating document status to READY...")
         update_document_status(document_id, DocumentStatus.READY)
+        print(f"[INGEST] ========== Ingestion complete ==========")
         
         return RAGUpsertResult(ingested=saved_count)
 
@@ -137,10 +154,18 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     # Validate event data with Pydantic
     event_data = QueryPdfEventData(**ctx.event.data)
     
+    print(f"[QUERY] ========== Starting query ==========")
+    print(f"[QUERY] Question: {event_data.question[:100]}...")
+    print(f"[QUERY] Chat ID: {event_data.chat_id}")
+    print(f"[QUERY] Scope: {event_data.scope_type} / {event_data.scope_id}")
+    print(f"[QUERY] Top K: {event_data.top_k}")
+    
     def _search() -> SearchResult:
         from chunk_search import search_for_scope, get_db
         
+        print(f"[QUERY] Step 1: Embedding question...")
         query_vec = embed_texts([event_data.question])[0]
+        print(f"[QUERY] Embedding generated, dim={len(query_vec)}")
         
         # M3: Look up project_id for chat scopes to enable inherited search
         project_id = None
@@ -148,11 +173,16 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
         
         if event_data.scope_type.value == "chat":
             db = get_db()
+            print(f"[QUERY] Step 2: Looking up chat in DB...")
             chat = db.chats.find_one({"id": event_data.scope_id}, {"project_id": 1})
+            print(f"[QUERY] Chat found: {chat}")
             if chat and chat.get("project_id"):
                 project_id = chat["project_id"]
+                print(f"[QUERY] Chat belongs to project: {project_id}")
         
         # Use chunk_search with project inheritance (M3)
+        print(f"[QUERY] Step 3: Searching chunks...")
+        print(f"[QUERY] Search params: scope_type={event_data.scope_type.value}, scope_id={event_data.scope_id}, project_id={project_id}")
         result = search_for_scope(
             query_vec, 
             scope_type=event_data.scope_type.value,
@@ -161,6 +191,9 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
             include_project=include_project,
             project_id=project_id
         )
+        
+        print(f"[QUERY] Search returned {len(result.get('contexts', []))} contexts")
+        print(f"[QUERY] Sources: {result.get('sources', [])}")
         
         contexts = []
         for i, text in enumerate(result["contexts"]):

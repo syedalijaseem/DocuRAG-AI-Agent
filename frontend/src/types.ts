@@ -9,6 +9,7 @@ export interface Project {
   id: string;
   name: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface Chat {
@@ -17,16 +18,26 @@ export interface Chat {
   title: string;
   is_pinned: boolean;
   created_at: string;
+  updated_at: string;
 }
 
+// Document type matching backend M1 model
 export interface Document {
   id: string;
   filename: string;
   s3_key: string;
-  scope_type: ScopeType;
-  scope_id: string;
-  chunk_count: number;
+  checksum: string;
+  size_bytes: number;
+  status: "pending" | "ready" | "failed";
   uploaded_at: string;
+}
+
+// Upload response from backend
+export interface UploadResponse {
+  document: Document;
+  s3_url?: string; // Optional - not present when linked
+  status: "uploaded" | "linked";
+  message?: string;
 }
 
 export interface Message {
@@ -44,12 +55,6 @@ export interface QueryResponse {
   num_contexts: number;
   history: Array<{ role: string; content: string }>;
   avg_confidence: number;
-}
-
-export interface UploadResponse {
-  document: Document;
-  s3_url: string;
-  status: string;
 }
 
 // Legacy types (for backward compatibility)

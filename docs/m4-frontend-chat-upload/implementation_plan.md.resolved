@@ -1,0 +1,65 @@
+# M4: Frontend Chat Upload - Implementation Plan
+
+## Overview
+
+Most M4 features are **already implemented**! This milestone will add enhancements.
+
+## Current State ✅
+
+| Feature | Status |
+|---------|--------|
+| Upload button (sidebar) | ✅ Done |
+| Document list | ✅ Done |
+| Upload progress ("Uploading...") | ✅ Basic |
+| Scope-based upload | ✅ Done |
+| Ingest trigger | ✅ Done |
+
+## Remaining Enhancements
+
+### 1. Upload in Message Composer
+Add an attachment button to ChatArea input area for inline upload.
+
+#### [MODIFY] ChatArea.tsx
+- Add file input with clip icon next to message input
+- Accept `onUpload` prop from parent
+- Show attached file preview
+
+### 2. Enhanced Progress Tracking
+Poll `/api/documents/{id}/status` endpoint for real-time progress.
+
+#### [MODIFY] App.tsx
+- Poll status endpoint after upload
+- Update document status in state (pending → ready)
+
+#### [MODIFY] Sidebar.tsx  
+- Show document status indicator (spinner for pending, checkmark for ready)
+
+---
+
+## Verification Plan
+
+### Existing Tests
+No frontend tests found. Will use manual browser testing.
+
+### Manual Browser Tests
+
+1. **Test upload from sidebar**
+   - Open http://localhost:5173
+   - Create a new chat
+   - Click "+ Upload PDF" in sidebar
+   - Select a PDF file
+   - Verify "Uploading..." appears
+   - Verify document appears in list after completion
+
+2. **Test upload from message composer** (after implementing)
+   - Open http://localhost:5173
+   - Create a new chat  
+   - Click attachment icon in message input
+   - Select a PDF file
+   - Verify upload progress
+   - Verify can send message after upload
+
+3. **Test document status tracking**
+   - Upload a document
+   - Verify spinner shows during "pending"
+   - Verify checkmark shows when "ready"

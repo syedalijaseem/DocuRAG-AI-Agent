@@ -36,7 +36,8 @@ def get_db():
     if not uri:
         raise HTTPException(status_code=500, detail="MONGODB_URI not configured")
     client = MongoClient(uri)
-    return client["rag_db"]
+    db_name = os.getenv("MONGODB_DATABASE", "docurag")  # Use env variable, default to docurag
+    return client[db_name]
 
 
 # --- Request Models ---
@@ -381,16 +382,20 @@ async def upload_document(
     
     if existing_doc:
         # Document exists, just add scope link
-        from models import DocumentScope
+        from models import DocumentScope, Document
+        
+        # Serialize existing doc to handle ObjectId/datetime
+        existing_doc_model = Document(**existing_doc)
+        
         scope_link = DocumentScope(
-            document_id=existing_doc["id"],
+            document_id=existing_doc_model.id,
             scope_type=scope,
             scope_id=scope_id
         )
         db.document_scopes.insert_one(scope_link.model_dump())
         
         return {
-            "document": existing_doc,
+            "document": existing_doc_model.model_dump(),
             "status": "linked",
             "message": "Document already exists, linked to scope"
         }
@@ -400,7 +405,7 @@ async def upload_document(
     result = file_storage.upload_file(content, safe_filename, prefix)
     
     # Create document record (M1 model)
-    from models import DocumentScope, DocumentStatus
+    from models import Document, DocumentScope, DocumentStatus
     doc = Document(
         filename=safe_filename,
         s3_key=result["s3_key"],
@@ -436,6 +441,7 @@ class IngestEventRequest(BaseModel):
     filename: str
     scope_type: str
     scope_id: str
+    document_id: str  # M1: Required for chunk linking
 
 
 class QueryEventRequest(BaseModel):
@@ -459,6 +465,7 @@ async def send_ingest_event(request: IngestEventRequest):
             "filename": request.filename,
             "scope_type": request.scope_type,
             "scope_id": request.scope_id,
+            "document_id": request.document_id,  # M1: Include for chunk linking
         }
     )
     

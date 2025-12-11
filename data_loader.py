@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 client = OpenAI()
+# Use text-embedding-3-large (3072 dims) for better quality
 EMBED_MODEL = "text-embedding-3-large"
 EMBED_DIM = 3072
 

@@ -170,7 +170,8 @@ export async function sendIngestEvent(
   pdfPath: string,
   filename: string,
   scopeType: ScopeType,
-  scopeId: string
+  scopeId: string,
+  documentId: string // M1: Required for chunk linking
 ): Promise<string[]> {
   const result = await fetchApi<{ event_ids: string[] }>("/events/ingest", {
     method: "POST",
@@ -179,6 +180,7 @@ export async function sendIngestEvent(
       filename,
       scope_type: scopeType,
       scope_id: scopeId,
+      document_id: documentId,
     }),
   });
   return result.event_ids;
