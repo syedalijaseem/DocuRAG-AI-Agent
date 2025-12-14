@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import * as api from "../api";
 import type { Session } from "../types";
+import { LoadingSpinner } from "../components/LoadingSpinner";
 
 interface SettingsPageProps {
   onClose: () => void;
@@ -19,9 +20,9 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
 
   return (
     <div className="min-h-screen w-full bg-neutral-100 dark:bg-[#242424] transition-colors">
-      {/* Header */}
-      <div className="border-b border-[#e8e8e8] dark:border-[#3a3a3a] bg-[#f8f8f8] dark:bg-[#242424]">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+      {/* Header - matches sidebar h-14 md:h-16 */}
+      <div className="h-14 md:h-16 border-b border-[#e8e8e8] dark:border-[#3a3a3a] bg-[#f8f8f8] dark:bg-[#242424]">
+        <div className="h-full max-w-4xl mx-auto px-6 flex items-center justify-between">
           <h1 className="text-xl font-semibold text-[#1a1a1a] dark:text-[#ececec]">
             Settings
           </h1>
@@ -60,8 +61,8 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
               onClick={() => setActiveTab(tab.id as typeof activeTab)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === tab.id
-                  ? "bg-[#f8f8f8] dark:bg-[#242424] text-[#1a1a1a] dark:text-[#ececec] shadow-sm"
-                  : "text-zinc-600 dark:text-[#a0a0a0] hover:text-[#1a1a1a] dark:hover:text-white"
+                  ? "bg-[#e6f7f5] dark:bg-[#0f2e2b] text-[#0f766e] dark:text-[#2dd4bf] shadow-sm"
+                  : "text-zinc-600 dark:text-[#737373] hover:text-[#1a1a1a] dark:hover:text-white hover:bg-[#f0f0f0] dark:hover:bg-[#2a2a2a]"
               }`}
             >
               {tab.label}
@@ -194,7 +195,7 @@ function AppearanceTab() {
         Appearance
       </h2>
       <p className="text-sm text-[#a3a3a3] dark:text-[#a0a0a0] mb-6">
-        Choose how DocuRAG looks on your device
+        Choose how Querious looks on your device
       </p>
 
       <div className="flex gap-4">
@@ -404,11 +405,7 @@ function SessionsTab() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin w-6 h-6 border-2 border-zinc-300 dark:border-zinc-600 border-t-orange-500 rounded-full" />
-      </div>
-    );
+    return <LoadingSpinner size="sm" />;
   }
 
   return (

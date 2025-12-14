@@ -21,6 +21,7 @@ import { ChatViewPage } from "./pages/ChatViewPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { LoadingSpinner } from "./components/LoadingSpinner";
 
 // Query client for TanStack Query
 const queryClient = new QueryClient({
@@ -37,11 +38,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-neutral-800 text-white">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
+    return <LoadingSpinner fullScreen />;
   }
 
   if (!user) {

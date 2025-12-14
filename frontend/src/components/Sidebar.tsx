@@ -2,6 +2,7 @@
  * Sidebar component with projects and chats.
  */
 import type { Project, Chat, Document, User } from "../types";
+import logo from "../assets/logo.png";
 
 interface SidebarProps {
   projects: Project[];
@@ -50,7 +51,10 @@ export function Sidebar({
     <aside className="w-72 bg-neutral-800 border-r border-neutral-800 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="p-5 border-b border-neutral-800">
-        <h1 className="text-xl font-semibold">📚 DocuRAG</h1>
+        <div className="flex items-center gap-2">
+          <img src={logo} alt="Querious" className="w-7 h-7" />
+          <h1 className="text-xl font-semibold">Querious</h1>
+        </div>
       </div>
 
       {/* New Chat Button */}

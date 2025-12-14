@@ -2,7 +2,7 @@
  * Chat View Page - Conversation with document upload.
  */
 import { useState, useRef, useEffect } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useChat,
@@ -13,10 +13,11 @@ import {
 import { useUploadDocument } from "../hooks/useDocuments";
 import * as api from "../api";
 import type { Message } from "../types";
+import logo from "../assets/logo.png";
+import { LoadingSpinner } from "../components/LoadingSpinner";
 
 export function ChatViewPage() {
   const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   const [input, setInput] = useState("");
@@ -33,16 +34,6 @@ export function ChatViewPage() {
   );
   const { data: documents = [] } = useChatDocuments(id || null);
   const uploadDocument = useUploadDocument();
-
-  // Send initial message from URL param
-  useEffect(() => {
-    const initialMessage = searchParams.get("message");
-    if (initialMessage && id && !sending) {
-      setInput(initialMessage);
-      // Clear the param
-      window.history.replaceState({}, "", `/chat/${id}`);
-    }
-  }, [searchParams, id, sending]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -162,181 +153,245 @@ export function ChatViewPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Messages */}
-      <div className="flex-1 overflow-auto p-4 space-y-4">
-        {messagesLoading ? (
-          <div className="text-center text-[#a3a3a3]">Loading messages...</div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center mb-4">
-              <span className="text-3xl">📚</span>
-            </div>
-            <h2 className="text-xl font-semibold mb-2">
-              Start your conversation
-            </h2>
-            <p className="text-[#a3a3a3] mb-4">
-              {documents.length === 0
-                ? "Upload a PDF to get started"
-                : "Ask a question about your documents"}
-            </p>
-          </div>
-        ) : (
-          messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`max-w-[85%] p-4 rounded-2xl ${
-                msg.role === "user"
-                  ? "ml-auto bg-gradient-to-br from-teal-600 to-teal-700 text-white"
-                  : "mr-auto bg-[#f8f8f8] dark:bg-[#242424] border border-[#e8e8e8] dark:border-[#3a3a3a]"
-              }`}
-            >
-              <div className="whitespace-pre-wrap">{msg.content}</div>
-              {msg.sources.length > 0 && (
-                <details className="mt-3 text-sm">
-                  <summary className="cursor-pointer text-zinc-300/80 hover:text-white">
-                    📚 Sources ({msg.sources.length})
-                  </summary>
-                  <ul className="mt-2 pl-5 text-[#a0a0a0] list-disc">
-                    {msg.sources.map((src, i) => (
-                      <li key={i} className="text-xs">
-                        {src}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-            </div>
-          ))
-        )}
-
-        {sending && (
-          <div className="max-w-[85%] p-4 rounded-2xl mr-auto bg-[#f8f8f8] dark:bg-[#242424] border border-[#e8e8e8] dark:border-[#3a3a3a]">
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1">
-                <span className="w-2 h-2 bg-[#14b8a6] rounded-full animate-bounce" />
-                <span
-                  className="w-2 h-2 bg-[#14b8a6] rounded-full animate-bounce"
-                  style={{ animationDelay: "0.15s" }}
-                />
-                <span
-                  className="w-2 h-2 bg-[#14b8a6] rounded-full animate-bounce"
-                  style={{ animationDelay: "0.3s" }}
-                />
+      {/* Messages - Outer container handles scroll, inner is centered */}
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-3xl mx-auto p-4 space-y-4">
+          {messagesLoading ? (
+            <>
+              <LoadingSpinner size="md" />
+              <div className="text-center text-[#a3a3a3]">
+                Loading messages...
               </div>
-              <span className="text-[#a0a0a0] text-sm">Thinking...</span>
+            </>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center mb-4">
+                <img src={logo} alt="Querious" className="w-10 h-10" />
+              </div>
+              <h2 className="text-xl font-semibold mb-2">
+                Start your conversation
+              </h2>
+              <p className="text-[#a3a3a3] mb-4">
+                {documents.length === 0
+                  ? "Upload a PDF to get started"
+                  : "Ask a question about your documents"}
+              </p>
             </div>
-          </div>
-        )}
+          ) : (
+            messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`max-w-[85%] p-4 rounded-2xl ${
+                  msg.role === "user"
+                    ? "ml-auto bg-gradient-to-br from-teal-600 to-teal-700 text-white"
+                    : "mr-auto bg-[#f8f8f8] dark:bg-[#242424] border border-[#e8e8e8] dark:border-[#3a3a3a]"
+                }`}
+              >
+                <div className="whitespace-pre-wrap">{msg.content}</div>
+                {msg.sources.length > 0 && (
+                  <details className="mt-3 text-sm">
+                    <summary className="cursor-pointer text-zinc-300/80 hover:text-white">
+                      📚 Sources ({msg.sources.length})
+                    </summary>
+                    <ul className="mt-2 pl-5 text-[#a0a0a0] list-disc">
+                      {msg.sources.map((src, i) => (
+                        <li key={i} className="text-xs">
+                          {src}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            ))
+          )}
 
-        <div ref={messagesEndRef} />
+          {sending && (
+            <div className="max-w-[85%] p-4 rounded-2xl mr-auto bg-[#f8f8f8] dark:bg-[#242424] border border-[#e8e8e8] dark:border-[#3a3a3a]">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 bg-[#14b8a6] rounded-full animate-bounce" />
+                  <span
+                    className="w-2 h-2 bg-[#14b8a6] rounded-full animate-bounce"
+                    style={{ animationDelay: "0.15s" }}
+                  />
+                  <span
+                    className="w-2 h-2 bg-[#14b8a6] rounded-full animate-bounce"
+                    style={{ animationDelay: "0.3s" }}
+                  />
+                </div>
+                <span className="text-[#a0a0a0] text-sm">Thinking...</span>
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
-      {/* Input Area */}
-      <div className="p-4 border-t border-[#e8e8e8] dark:border-[#3a3a3a] bg-[#f8f8f8] dark:bg-[#242424]">
-        {/* Settings Toggle */}
-        <div className="flex items-center justify-between mb-3">
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="text-sm text-[#a3a3a3] hover:text-[#1a1a1a] dark:hover:text-white flex items-center gap-1"
-          >
-            ⚙️ Settings {showSettings ? "▲" : "▼"}
-          </button>
-          <span className="text-xs text-[#a3a3a3] dark:text-zinc-600">
-            {documents.length} document{documents.length !== 1 ? "s" : ""} • Top{" "}
-            {topK}
-          </span>
-        </div>
-
-        {/* Settings Panel */}
-        {showSettings && (
-          <div className="mb-4 p-4 bg-neutral-100 dark:bg-[#242424] rounded-xl space-y-4">
-            <label className="flex items-center justify-between text-sm">
-              <span className="text-[#a0a0a0]">Chunks (top_k):</span>
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min="1"
-                  max="20"
-                  value={topK}
-                  onChange={(e) => setTopK(parseInt(e.target.value))}
-                  className="w-24 accent-teal-500"
-                />
-                <span className="text-white w-6 text-center">{topK}</span>
-              </div>
-            </label>
-
-            <div className="border-t border-[#e8e8e8] dark:border-[#3a3a3a] pt-3">
-              <span className="text-sm text-[#a0a0a0] block mb-2">
-                Attached Documents
-              </span>
-              {documents.length === 0 ? (
-                <div className="text-sm text-[#a3a3a3] italic">
-                  No documents attached
+      {/* Floating Input Bubble - positioned at bottom without border-top */}
+      <div className="pb-4 md:pb-6 px-4">
+        <div className="max-w-3xl mx-auto">
+          {/* Settings Panel - floating above input when open */}
+          {showSettings && (
+            <div className="mb-3 p-4 bg-[#ffffff] dark:bg-[#242424] border border-[#e8e8e8] dark:border-[#3a3a3a] rounded-2xl shadow-sm">
+              <label className="flex items-center justify-between text-sm">
+                <span className="text-[#737373] dark:text-[#a0a0a0]">
+                  Chunks (top_k):
+                </span>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="1"
+                    max="20"
+                    value={topK}
+                    onChange={(e) => setTopK(parseInt(e.target.value))}
+                    className="w-24 accent-teal-500"
+                  />
+                  <span className="text-[#1a1a1a] dark:text-white w-6 text-center">
+                    {topK}
+                  </span>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between text-sm bg-[#f8f8f8] dark:bg-[#242424] p-2 rounded-lg"
-                    >
+              </label>
+
+              <div className="border-t border-[#e8e8e8] dark:border-[#3a3a3a] mt-3 pt-3">
+                <span className="text-sm text-[#737373] dark:text-[#a0a0a0] block mb-2">
+                  Attached Documents ({documents.length})
+                </span>
+                {documents.length === 0 ? (
+                  <div className="text-sm text-[#a3a3a3] italic">
+                    No documents attached
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {documents.map((doc) => (
                       <span
-                        className="truncate text-zinc-300 max-w-[200px]"
+                        key={doc.id}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-[#f0f0f0] dark:bg-[#1e1e1e] rounded-lg text-[#525252] dark:text-[#a0a0a0]"
                         title={doc.filename}
                       >
-                        {doc.filename}
+                        📄{" "}
+                        {doc.filename.length > 20
+                          ? doc.filename.slice(0, 20) + "..."
+                          : doc.filename}
                       </span>
-                      <span className="text-xs text-[#a3a3a3]">
-                        {new Date(doc.uploaded_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
+          )}
+
+          {/* Floating Bubble Input */}
+          <div className="flex items-end gap-2 p-3 bg-[#ffffff] dark:bg-[#242424] border border-[#e8e8e8] dark:border-[#3a3a3a] focus-within:border-[#0d9488] dark:focus-within:border-[#2dd4bf] rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.25)] transition-colors">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf"
+              multiple
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+
+            {/* Attach Button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadDocument.isPending}
+              className="p-2 rounded-full text-[#737373] dark:text-[#a0a0a0] hover:text-[#1a1a1a] dark:hover:text-white hover:bg-[#f0f0f0] dark:hover:bg-[#3a3a3a] transition-colors disabled:opacity-50 flex-shrink-0"
+              title="Attach PDF"
+            >
+              {uploadDocument.isPending ? (
+                <span className="text-lg">⏳</span>
+              ) : (
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                  />
+                </svg>
+              )}
+            </button>
+
+            {/* Settings Toggle - small icon */}
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className={`p-2 rounded-full transition-colors flex-shrink-0 ${
+                showSettings
+                  ? "text-[#0d9488] dark:text-[#2dd4bf] bg-[#e6f7f5] dark:bg-[#0f2e2b]"
+                  : "text-[#737373] dark:text-[#a0a0a0] hover:text-[#1a1a1a] dark:hover:text-white hover:bg-[#f0f0f0] dark:hover:bg-[#3a3a3a]"
+              }`}
+              title={`Settings (${documents.length} docs, top ${topK})`}
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+            </button>
+
+            {/* Text Input - transparent, borderless */}
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) =>
+                e.key === "Enter" && !e.shiftKey && handleSend()
+              }
+              placeholder={
+                documents.length > 0
+                  ? "Message..."
+                  : "Upload a document first..."
+              }
+              disabled={sending || documents.length === 0}
+              className="input-transparent flex-1 py-2 px-1 bg-transparent border-0 outline-0 ring-0 text-[#1a1a1a] dark:text-[#ececec] placeholder-[#a3a3a3] focus:outline-none focus:ring-0 disabled:opacity-50 min-w-0"
+            />
+
+            {/* Send Button - circular */}
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || sending || documents.length === 0}
+              className={`p-2.5 rounded-full transition-all flex-shrink-0 ${
+                input.trim() && !sending && documents.length > 0
+                  ? "bg-[#0d9488] hover:bg-[#0f766e] dark:bg-[#2dd4bf] dark:hover:bg-[#5eead4] text-white dark:text-[#0f2e2b] shadow-sm"
+                  : "bg-[#e8e8e8] dark:bg-[#3a3a3a] text-[#a3a3a3] dark:text-[#6b6b6b] cursor-not-allowed"
+              }`}
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                />
+              </svg>
+            </button>
           </div>
-        )}
-
-        {/* Input */}
-        <div className="flex items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf"
-            multiple
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadDocument.isPending}
-            className="p-3 rounded-xl bg-neutral-100 dark:bg-[#242424] hover:bg-neutral-200 dark:hover:bg-neutral-700 text-zinc-600 dark:text-[#a0a0a0] hover:text-[#1a1a1a] dark:hover:text-white transition-colors disabled:opacity-50"
-            title="Attach PDF"
-          >
-            {uploadDocument.isPending ? "⏳" : "📎"}
-          </button>
-
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-            placeholder={
-              documents.length > 0
-                ? "Ask a question..."
-                : "Upload a document first..."
-            }
-            disabled={sending || documents.length === 0}
-            className="flex-1 px-4 py-3 bg-neutral-100 dark:bg-[#242424] border border-zinc-300 dark:border-[#3a3a3a] rounded-xl text-[#1a1a1a] dark:text-[#ececec] placeholder-zinc-400 dark:placeholder-[#a3a3a3] focus:outline-none focus:border-[#0d9488] disabled:opacity-50"
-          />
-
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || sending || documents.length === 0}
-            className="p-3 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 disabled:opacity-50 text-white rounded-xl transition-all"
-          >
-            ➤
-          </button>
         </div>
       </div>
     </div>

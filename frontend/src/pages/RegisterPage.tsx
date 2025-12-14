@@ -94,8 +94,8 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
             onClick={onSwitchToLogin}
             className="py-3 px-6 rounded-xl font-medium
                        bg-neutral-800 dark:bg-[#f8f8f8] text-white dark:text-[#1a1a1a]
-                       hover:bg-neutral-800 dark:hover:bg-neutral-100
-                       transition-all"
+                       hover:bg-neutral-700 dark:hover:bg-neutral-200
+                       transition-colors duration-200"
           >
             Back to login
           </button>
@@ -226,9 +226,9 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
             disabled={loading}
             className="w-full py-3 px-4 rounded-xl font-medium
                        bg-neutral-800 dark:bg-[#f8f8f8] text-white dark:text-[#1a1a1a]
-                       hover:bg-neutral-800 dark:hover:bg-neutral-100
+                       hover:bg-neutral-700 dark:hover:bg-neutral-200
                        disabled:opacity-50 disabled:cursor-not-allowed
-                       transition-all"
+                       transition-colors duration-200"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">

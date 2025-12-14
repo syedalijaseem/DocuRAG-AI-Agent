@@ -3,6 +3,7 @@
  */
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
+import logo from "../assets/logo.png";
 
 interface LoginPageProps {
   onSwitchToRegister: () => void;
@@ -41,14 +42,14 @@ export function LoginPage({
       <div className="w-full max-w-md px-6">
         {/* Logo/Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#0d9488] to-[#0f766e] mb-4">
-            <span className="text-2xl">📄</span>
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-[#0d9488] to-[#0f766e] mb-4">
+            <img src={logo} alt="Querious" className="w-10 h-10" />
           </div>
           <h1 className="text-2xl font-semibold text-[#1a1a1a] dark:text-[#ececec]">
             Welcome back
           </h1>
           <p className="text-[#a3a3a3] dark:text-[#a0a0a0] mt-1">
-            Sign in to DocuRAG
+            Sign in to Querious
           </p>
         </div>
 
@@ -111,9 +112,9 @@ export function LoginPage({
             disabled={loading}
             className="w-full py-3 px-4 rounded-xl font-medium
                        bg-neutral-800 dark:bg-[#f8f8f8] text-white dark:text-[#1a1a1a]
-                       hover:bg-neutral-800 dark:hover:bg-neutral-100
+                       hover:bg-neutral-700 dark:hover:bg-neutral-200
                        disabled:opacity-50 disabled:cursor-not-allowed
-                       transition-all"
+                       transition-colors duration-200"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">

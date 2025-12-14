@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import type { Message } from "../types";
+import logo from "../assets/logo.png";
 
 interface ChatAreaProps {
   messages: Message[];
@@ -36,9 +37,12 @@ export function ChatArea({
   if (!hasChat) {
     return (
       <main className="flex-1 flex flex-col items-center justify-center text-center text-zinc-500">
-        <h2 className="text-2xl font-semibold text-white mb-2">
-          Welcome to DocuRAG
-        </h2>
+        <div className="flex items-center gap-3 mb-4">
+          <img src={logo} alt="Querious" className="w-10 h-10" />
+          <h2 className="text-2xl font-semibold text-white">
+            Welcome to Querious
+          </h2>
+        </div>
         <p className="mb-4">Upload PDFs and ask questions about them.</p>
         {!hasDocuments ? (
           <p>👈 Start by uploading a PDF in the sidebar</p>
