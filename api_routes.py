@@ -650,9 +650,11 @@ async def send_ingest_event(request: IngestEventRequest):
 @router.post("/events/query")
 async def send_query_event(request: QueryEventRequest, user: User = Depends(get_current_user)):
     """Send a query event to Inngest."""
-    # Check token limit
+    # Get plan-based token limit (not from DB - use dynamic calculation)
+    plan = getattr(user, 'plan', 'free') or 'free'
+    token_limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["token_limit"]
     tokens_used = getattr(user, 'tokens_used', 0) or 0
-    token_limit = getattr(user, 'token_limit', 5000) or 5000
+    
     if tokens_used >= token_limit:
         raise HTTPException(
             status_code=403,
