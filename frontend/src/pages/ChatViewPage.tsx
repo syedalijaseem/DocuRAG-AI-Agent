@@ -25,6 +25,7 @@ import {
 } from "../components/QualityPresetSelector";
 import { TokenUsageBar } from "../components/TokenUsageBar";
 import { StreamingMessage } from "../components/StreamingMessage";
+import { ChatMessage } from "../components/ChatMessage";
 import { useStreamingQuery } from "../hooks/useStreamingQuery";
 
 export function ChatViewPage() {
@@ -287,39 +288,14 @@ export function ChatViewPage() {
                 </p>
               </div>
             ) : (
-              messages.map((msg) => {
-                return (
-                  <div
-                    key={msg.id}
-                    className={`max-w-[85%] p-4 rounded-2xl ${
-                      msg.role === "user"
-                        ? "ml-auto bg-gradient-to-br from-teal-600 to-teal-700 text-white"
-                        : "mr-auto bg-[#f8f8f8] dark:bg-[#242424] border border-[#e8e8e8] dark:border-[#3a3a3a]"
-                    }`}
-                  >
-                    {msg.role === "assistant" ? (
-                      // Temporarily disabled typewriter to debug content issue
-                      <div className="whitespace-pre-wrap">{msg.content}</div>
-                    ) : (
-                      <div className="whitespace-pre-wrap">{msg.content}</div>
-                    )}
-                    {msg.sources.length > 0 && (
-                      <details className="mt-3 text-sm">
-                        <summary className="cursor-pointer text-zinc-300/80 hover:text-white">
-                          📚 Sources ({msg.sources.length})
-                        </summary>
-                        <ul className="mt-2 pl-5 text-[#a0a0a0] list-disc">
-                          {msg.sources.map((src, i) => (
-                            <li key={i} className="text-xs">
-                              {src}
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
-                    )}
-                  </div>
-                );
-              })
+              messages.map((msg) => (
+                <ChatMessage
+                  key={msg.id}
+                  role={msg.role as "user" | "assistant"}
+                  content={msg.content}
+                  sources={msg.sources}
+                />
+              ))
             )}
 
             {/* Streaming response */}
