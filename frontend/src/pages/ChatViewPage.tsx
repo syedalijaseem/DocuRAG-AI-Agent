@@ -44,7 +44,7 @@ export function ChatViewPage() {
   const { data: documents = [] } = useChatDocuments(id || null);
   const uploadDocument = useUploadDocument();
   const updateChat = useUpdateChat();
-  const { user } = useAuth();
+  const { user, addTokensUsed } = useAuth();
 
   // Get user's subscription tier from their plan
   const userTier = user?.plan || "free";
@@ -115,12 +115,18 @@ export function ChatViewPage() {
         const answer =
           (result.answer as string) || "I couldn't find an answer.";
         const sources = (result.sources as string[]) || [];
+        const tokensUsed = (result.tokens_used as number) || 0;
 
         // Save assistant message
         await api.saveMessage(id, "assistant", answer, sources);
 
         // Refetch messages
         queryClient.invalidateQueries({ queryKey: chatKeys.messages(id) });
+
+        // Update token count locally (no extra API call)
+        if (tokensUsed > 0) {
+          addTokensUsed(tokensUsed);
+        }
       }
     } catch (error: unknown) {
       console.error("Query failed:", error);

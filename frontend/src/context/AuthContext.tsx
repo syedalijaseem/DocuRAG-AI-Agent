@@ -19,6 +19,7 @@ interface AuthContextType {
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  addTokensUsed: (tokens: number) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -85,9 +86,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await checkAuth();
   }
 
+  function addTokensUsed(tokens: number) {
+    if (user) {
+      setUser({ ...user, tokens_used: user.tokens_used + tokens });
+    }
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, error, login, register, logout, refreshUser }}
+      value={{
+        user,
+        loading,
+        error,
+        login,
+        register,
+        logout,
+        refreshUser,
+        addTokensUsed,
+      }}
     >
       {children}
     </AuthContext.Provider>
