@@ -56,6 +56,9 @@ export function ChatViewPage() {
   const currentPreset: QualityPreset =
     (chat?.quality_preset as QualityPreset) || "standard";
 
+  // Check if user is at token limit
+  const isAtTokenLimit = user ? user.tokens_used >= user.token_limit : false;
+
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -430,16 +433,27 @@ export function ChatViewPage() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) =>
-                  e.key === "Enter" && !e.shiftKey && handleSend()
-                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    if (isAtTokenLimit) {
+                      setShowLimitModal(true);
+                    } else {
+                      handleSend();
+                    }
+                  }
+                }}
+                onClick={() => isAtTokenLimit && setShowLimitModal(true)}
                 placeholder={
-                  documents.length > 0
+                  isAtTokenLimit
+                    ? "Token limit reached — upgrade to continue"
+                    : documents.length > 0
                     ? "Message..."
                     : "Upload a document first..."
                 }
                 disabled={sending || documents.length === 0}
-                className="input-transparent flex-1 py-2 px-1 bg-transparent border-0 outline-0 ring-0 text-[#1a1a1a] dark:text-[#ececec] placeholder-[#a3a3a3] focus:outline-none focus:ring-0 disabled:opacity-50 min-w-0"
+                className={`input-transparent flex-1 py-2 px-1 bg-transparent border-0 outline-0 ring-0 text-[#1a1a1a] dark:text-[#ececec] placeholder-[#a3a3a3] focus:outline-none focus:ring-0 disabled:opacity-50 min-w-0 ${
+                  isAtTokenLimit ? "cursor-pointer" : ""
+                }`}
               />
 
               {/* Send Button - circular */}
