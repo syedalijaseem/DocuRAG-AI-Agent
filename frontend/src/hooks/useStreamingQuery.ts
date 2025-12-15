@@ -69,7 +69,7 @@ export function useStreamingQuery(chatId: string) {
         if (!reader) throw new Error("No reader available");
 
         let buffer = "";
-        let currentEvent = "";
+        let currentEvent = "chunk"; // Default to chunk for backward compat
 
         while (true) {
           const { done, value } = await reader.read();
@@ -77,59 +77,74 @@ export function useStreamingQuery(chatId: string) {
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
+          buffer = lines.pop() || ""; // Keep last incomplete line
 
           for (const line of lines) {
-            if (line.startsWith("event: ")) {
-              currentEvent = line.slice(7).trim();
-              continue;
-            }
+            const trimmed = line.trim();
+            if (!trimmed) continue; // Skip empty lines
 
-            if (line.startsWith("data: ")) {
+            if (trimmed.startsWith("event:")) {
+              currentEvent = trimmed.slice(6).trim();
+            } else if (trimmed.startsWith("data:")) {
+              const dataStr = trimmed.slice(5).trim();
+              if (!dataStr) continue;
+
               try {
-                const data = JSON.parse(line.slice(6));
+                const data = JSON.parse(dataStr);
 
-                if (currentEvent === "status" || data.stage) {
-                  setState((prev) => ({
-                    ...prev,
-                    stage: data.stage as StreamingStage,
-                  }));
+                // Handle based on event type
+                switch (currentEvent) {
+                  case "status":
+                    if (data.stage) {
+                      setState((prev) => ({
+                        ...prev,
+                        stage: data.stage as StreamingStage,
+                      }));
+                    }
+                    break;
+
+                  case "sources":
+                    setState((prev) => ({
+                      ...prev,
+                      sources: data.sources || [],
+                      scores: data.scores || [],
+                      stage: "generating",
+                    }));
+                    break;
+
+                  case "chunk":
+                    if (data.content !== undefined && data.content !== null) {
+                      setState((prev) => ({
+                        ...prev,
+                        content: prev.content + data.content,
+                        stage: "streaming",
+                      }));
+                    }
+                    break;
+
+                  case "done":
+                    // Use full_response from backend if available, otherwise keep accumulated
+                    setState((prev) => ({
+                      ...prev,
+                      content: data.full_response || prev.content,
+                      stage: "done",
+                      isLoading: false,
+                      tokensUsed: data.tokens_used || 0,
+                    }));
+                    break;
+
+                  case "error":
+                    setState((prev) => ({
+                      ...prev,
+                      stage: "error",
+                      error: data.error || "Unknown error",
+                      isLoading: false,
+                    }));
+                    break;
                 }
 
-                if (currentEvent === "sources" || data.sources) {
-                  setState((prev) => ({
-                    ...prev,
-                    sources: data.sources || [],
-                    scores: data.scores || [],
-                    stage: "generating",
-                  }));
-                }
-
-                if (currentEvent === "chunk" || data.content) {
-                  setState((prev) => ({
-                    ...prev,
-                    content: prev.content + (data.content || ""),
-                    stage: "streaming",
-                  }));
-                }
-
-                if (currentEvent === "done" || data.full_response) {
-                  setState((prev) => ({
-                    ...prev,
-                    stage: "done",
-                    isLoading: false,
-                    tokensUsed: data.tokens_used || 0,
-                  }));
-                }
-
-                if (currentEvent === "error" || data.error) {
-                  setState((prev) => ({
-                    ...prev,
-                    stage: "error",
-                    error: data.error,
-                    isLoading: false,
-                  }));
-                }
+                // Reset to default after processing
+                currentEvent = "chunk";
               } catch {
                 // Ignore JSON parse errors
               }

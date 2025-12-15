@@ -24,7 +24,6 @@ import {
   getChunkCount,
 } from "../components/QualityPresetSelector";
 import { TokenUsageBar } from "../components/TokenUsageBar";
-import { TypewriterMessage } from "../components/TypewriterMessage";
 import { StreamingMessage } from "../components/StreamingMessage";
 import { useStreamingQuery } from "../hooks/useStreamingQuery";
 
@@ -39,6 +38,7 @@ export function ChatViewPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isSavingRef = useRef(false); // Guard against duplicate saves
 
   const { data: chat } = useChat(id || null);
   const { data: messages = [], isLoading: messagesLoading } = useChatMessages(
@@ -65,10 +65,10 @@ export function ChatViewPage() {
   // Check if user is at token limit
   const isAtTokenLimit = user ? user.tokens_used >= user.token_limit : false;
 
-  // Scroll to bottom on new messages
+  // Scroll to bottom on new messages and streaming content
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, streaming.content]);
 
   async function handleSend() {
     if (!input.trim() || !id || sending || streaming.isLoading) return;
@@ -101,6 +101,11 @@ export function ChatViewPage() {
       // Save user message
       await api.saveMessage(id, "user", userMessage);
 
+      // Scroll to bottom immediately so user sees the streaming animation
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
+
       // Start streaming query
       const history = messages
         .slice(-10)
@@ -120,24 +125,56 @@ export function ChatViewPage() {
 
   // Handle streaming completion - save assistant message
   useEffect(() => {
-    if (streaming.stage === "done" && streaming.content && id) {
-      // Save assistant message
-      api
-        .saveMessage(id, "assistant", streaming.content, streaming.sources)
-        .then(() => {
-          // Refresh messages
-          queryClient.invalidateQueries({ queryKey: chatKeys.messages(id) });
-        })
-        .catch(console.error);
+    async function handleStreamingComplete() {
+      // Guard against duplicate saves
+      if (
+        streaming.stage === "done" &&
+        streaming.content &&
+        id &&
+        !isSavingRef.current
+      ) {
+        isSavingRef.current = true;
 
-      // Update token count
-      if (streaming.tokensUsed > 0) {
-        addTokensUsed(streaming.tokensUsed);
+        // Capture content before any potential changes
+        const contentToSave = streaming.content;
+        const sourcesToSave = streaming.sources;
+        const tokensUsedToSave = streaming.tokensUsed;
+
+        console.log(
+          "[SAVE] Saving content:",
+          contentToSave.substring(0, 50) + "..."
+        );
+
+        try {
+          // Save assistant message
+          await api.saveMessage(id, "assistant", contentToSave, sourcesToSave);
+
+          // Update token count
+          if (tokensUsedToSave > 0) {
+            addTokensUsed(tokensUsedToSave);
+          }
+
+          // Reset streaming FIRST (so UI doesn't flash)
+          streaming.reset();
+
+          // Then refresh messages
+          await queryClient.invalidateQueries({
+            queryKey: chatKeys.messages(id),
+          });
+
+          // Explicitly scroll after refetch completes
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          }, 100);
+        } catch (err) {
+          console.error("Failed to save message:", err);
+        } finally {
+          isSavingRef.current = false;
+        }
       }
-
-      // Reset streaming state
-      streaming.reset();
     }
+
+    handleStreamingComplete();
 
     // Handle token limit error
     if (
@@ -255,11 +292,7 @@ export function ChatViewPage() {
                 </p>
               </div>
             ) : (
-              messages.map((msg, index) => {
-                // Typewriter effect for the most recent assistant message
-                const isLastAssistantMessage =
-                  msg.role === "assistant" && index === messages.length - 1;
-
+              messages.map((msg) => {
                 return (
                   <div
                     key={msg.id}
@@ -270,10 +303,8 @@ export function ChatViewPage() {
                     }`}
                   >
                     {msg.role === "assistant" ? (
-                      <TypewriterMessage
-                        content={msg.content}
-                        animate={isLastAssistantMessage}
-                      />
+                      // Temporarily disabled typewriter to debug content issue
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
                     ) : (
                       <div className="whitespace-pre-wrap">{msg.content}</div>
                     )}
