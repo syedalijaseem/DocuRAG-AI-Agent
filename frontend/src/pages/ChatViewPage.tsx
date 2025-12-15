@@ -24,6 +24,8 @@ import {
   getChunkCount,
 } from "../components/QualityPresetSelector";
 import { TokenUsageBar } from "../components/TokenUsageBar";
+import { LoadingStages } from "../components/LoadingStages";
+import { TypewriterMessage } from "../components/TypewriterMessage";
 
 export function ChatViewPage() {
   const { id } = useParams<{ id: string }>();
@@ -243,50 +245,50 @@ export function ChatViewPage() {
                 </p>
               </div>
             ) : (
-              messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`max-w-[85%] p-4 rounded-2xl ${
-                    msg.role === "user"
-                      ? "ml-auto bg-gradient-to-br from-teal-600 to-teal-700 text-white"
-                      : "mr-auto bg-[#f8f8f8] dark:bg-[#242424] border border-[#e8e8e8] dark:border-[#3a3a3a]"
-                  }`}
-                >
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
-                  {msg.sources.length > 0 && (
-                    <details className="mt-3 text-sm">
-                      <summary className="cursor-pointer text-zinc-300/80 hover:text-white">
-                        📚 Sources ({msg.sources.length})
-                      </summary>
-                      <ul className="mt-2 pl-5 text-[#a0a0a0] list-disc">
-                        {msg.sources.map((src, i) => (
-                          <li key={i} className="text-xs">
-                            {src}
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  )}
-                </div>
-              ))
+              messages.map((msg, index) => {
+                // Typewriter effect for the most recent assistant message
+                const isLastAssistantMessage =
+                  msg.role === "assistant" && index === messages.length - 1;
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`max-w-[85%] p-4 rounded-2xl ${
+                      msg.role === "user"
+                        ? "ml-auto bg-gradient-to-br from-teal-600 to-teal-700 text-white"
+                        : "mr-auto bg-[#f8f8f8] dark:bg-[#242424] border border-[#e8e8e8] dark:border-[#3a3a3a]"
+                    }`}
+                  >
+                    {msg.role === "assistant" ? (
+                      <TypewriterMessage
+                        content={msg.content}
+                        animate={isLastAssistantMessage}
+                      />
+                    ) : (
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    )}
+                    {msg.sources.length > 0 && (
+                      <details className="mt-3 text-sm">
+                        <summary className="cursor-pointer text-zinc-300/80 hover:text-white">
+                          📚 Sources ({msg.sources.length})
+                        </summary>
+                        <ul className="mt-2 pl-5 text-[#a0a0a0] list-disc">
+                          {msg.sources.map((src, i) => (
+                            <li key={i} className="text-xs">
+                              {src}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </div>
+                );
+              })
             )}
 
             {sending && (
               <div className="max-w-[85%] p-4 rounded-2xl mr-auto bg-[#f8f8f8] dark:bg-[#242424] border border-[#e8e8e8] dark:border-[#3a3a3a]">
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-[#14b8a6] rounded-full animate-bounce" />
-                    <span
-                      className="w-2 h-2 bg-[#14b8a6] rounded-full animate-bounce"
-                      style={{ animationDelay: "0.15s" }}
-                    />
-                    <span
-                      className="w-2 h-2 bg-[#14b8a6] rounded-full animate-bounce"
-                      style={{ animationDelay: "0.3s" }}
-                    />
-                  </div>
-                  <span className="text-[#a0a0a0] text-sm">Thinking...</span>
-                </div>
+                <LoadingStages />
               </div>
             )}
 
