@@ -140,11 +140,6 @@ export function ChatViewPage() {
         const sourcesToSave = streaming.sources;
         const tokensUsedToSave = streaming.tokensUsed;
 
-        console.log(
-          "[SAVE] Saving content:",
-          contentToSave.substring(0, 50) + "..."
-        );
-
         try {
           // Save assistant message
           await api.saveMessage(id, "assistant", contentToSave, sourcesToSave);
