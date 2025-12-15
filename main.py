@@ -201,6 +201,27 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     print(f"[QUERY] Scope: {event_data.scope_type} / {event_data.scope_id}")
     print(f"[QUERY] Top K: {event_data.top_k}")
     
+    # --- System Prompt ---
+    SYSTEM_PROMPT = """You are a helpful document assistant for Querious. Your role is to answer questions based ONLY on the provided context from the user's documents.
+
+Rules:
+- Only use information from the provided context
+- If the context doesn't contain enough information, say so clearly
+- Cite sources using [source: filename, page X] format
+- Be concise but thorough
+- If asked about something not in the context, don't make things up
+- For follow-up questions, use conversation history for context"""
+    
+    # --- Max tokens by quality preset ---
+    MAX_TOKENS_BY_CHUNKS = {
+        5: 512,      # Quick
+        10: 1024,    # Standard
+        20: 2048,    # Thorough
+        35: 4096,    # Deep
+        50: 4096,    # Max
+    }
+    max_tokens = MAX_TOKENS_BY_CHUNKS.get(event_data.top_k, 1024)
+    
     def _search() -> SearchResult:
         from chunk_search import search_for_scope, get_db
         
@@ -235,15 +256,12 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
         
         print(f"[QUERY] Search returned {len(result.get('contexts', []))} contexts")
         print(f"[QUERY] Sources: {result.get('sources', [])}")
+        print(f"[QUERY] Scores: {result.get('scores', [])}")
         
-        contexts = []
-        for i, text in enumerate(result["contexts"]):
-            source = result["sources"][i] if i < len(result["sources"]) else ""
-            contexts.append(f"{text} [source: {source}]")
-        
+        # Store raw data for improved formatting
         return SearchResult(
-            contexts=contexts,
-            sources=result["sources"],
+            contexts=result.get("contexts", []),
+            sources=result.get("sources", []),
             scores=result.get("scores", [])
         )
 
@@ -266,12 +284,48 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     sources = result.sources
     scores = result.scores
 
-    context_block = "\n\n".join(f"- {c}" for c in contexts)
+    # --- Handle empty or low quality results ---
+    MIN_RELEVANCE_THRESHOLD = 0.3
+    if not contexts or (scores and all(s < MIN_RELEVANCE_THRESHOLD for s in scores)):
+        no_results_answer = (
+            "I couldn't find relevant information in your documents to answer this question. "
+            "Try rephrasing or make sure the relevant documents are uploaded."
+        )
+        history = list(event_data.history)
+        history.append({"role": "user", "content": event_data.question})
+        history.append({"role": "assistant", "content": no_results_answer})
+        
+        return QueryResult(
+            answer=no_results_answer,
+            sources=[],
+            num_contexts=0,
+            history=history,
+            avg_confidence=0.0,
+            tokens_used=0
+        ).model_dump()
+
+    # --- Improved context formatting with page numbers and scores ---
+    context_blocks = []
+    documents_used = set()
+    for i, text in enumerate(contexts):
+        source = sources[i] if i < len(sources) else "Unknown"
+        score = scores[i] if i < len(scores) else 0.0
+        page = i + 1  # Approximate page number
+        documents_used.add(source)
+        
+        context_blocks.append(
+            f"---\nSource: {source} (Page {page})\nRelevance: {score:.0%}\n{text}\n"
+        )
+    
+    context_block = "\n".join(context_blocks)
+    
+    # --- Improved user prompt ---
     user_content = (
-        "Use the following context to answer the question.\n\n"
-        f"Context:\n{context_block}\n\n"
-        f"Question: {event_data.question}\n"
-        "Answer in detail using the context above. Cite sources inline when relevant."
+        f"Based on the following excerpts from your documents:\n\n"
+        f"{context_block}\n"
+        f"---\n"
+        f"Question: {event_data.question}\n\n"
+        f"Provide a clear, well-structured answer. Cite specific sources when referencing information."
     )
 
     adapter = ai.openai.Adapter(
@@ -280,7 +334,7 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
         base_url="https://api.deepseek.com/v1"
     )
 
-    messages = [{"role": "system", "content": "You answer using only the provided context."}]
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     
     # Apply sliding window to history
     recent_history = get_recent_history(event_data.history)
@@ -293,17 +347,21 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
         "llm-answer",
         adapter=adapter,
         body={
-            "max_tokens": 2056,
-            "temperature": 0.2,
+            "max_tokens": max_tokens,
+            "temperature": 0.3,  # More deterministic/factual
             "messages": messages
         }
     )
 
     answer = res["choices"][0]["message"]["content"].strip()
     
-    # Track token usage
+    # Track token usage with breakdown
     usage = res.get("usage", {})
     total_tokens = usage.get("total_tokens", 0)
+    input_tokens = usage.get("prompt_tokens", 0)
+    output_tokens = usage.get("completion_tokens", 0)
+    
+    print(f"[QUERY] Tokens: {input_tokens} input + {output_tokens} output = {total_tokens} total")
     
     if event_data.user_id and total_tokens > 0:
         def _update_tokens():
@@ -320,7 +378,7 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
         
         await ctx.step.run("update-token-usage", _update_tokens)
 
-    # Update history
+    # Update history with original question (not wrapped prompt)
     history = list(event_data.history)
     history.append({"role": "user", "content": event_data.question})
     history.append({"role": "assistant", "content": answer})
