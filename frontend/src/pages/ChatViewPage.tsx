@@ -23,6 +23,7 @@ import {
   QualityPresetSelector,
   getChunkCount,
 } from "../components/QualityPresetSelector";
+import { TokenUsageBar } from "../components/TokenUsageBar";
 
 export function ChatViewPage() {
   const { id } = useParams<{ id: string }>();
@@ -304,6 +305,15 @@ export function ChatViewPage() {
                   userPlan={userTier}
                   disabled={sending}
                 />
+
+                {/* Token Usage Bar */}
+                {user && (
+                  <TokenUsageBar
+                    tokensUsed={user.tokens_used}
+                    tokenLimit={user.token_limit}
+                    plan={userTier}
+                  />
+                )}
 
                 <div className="border-t border-[#e8e8e8] dark:border-[#3a3a3a] mt-3 pt-3">
                   <span className="text-sm text-[#737373] dark:text-[#a0a0a0] block mb-2">
