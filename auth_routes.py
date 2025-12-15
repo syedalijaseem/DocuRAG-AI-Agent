@@ -48,6 +48,25 @@ def get_db():
     return client[os.getenv("MONGODB_DATABASE", "docurag")]
 
 
+# --- Plan-based Token Limits ---
+
+PLAN_TOKEN_LIMITS = {
+    "free": 5000,
+    "pro": 500000,
+    "premium": 2000000,
+}
+
+def get_token_limit_for_plan(plan: str) -> int:
+    """Get token limit based on subscription plan."""
+    return PLAN_TOKEN_LIMITS.get(plan, PLAN_TOKEN_LIMITS["free"])
+
+def create_user_response(user_dict: dict) -> dict:
+    """Create UserResponse dict with dynamic token_limit based on plan."""
+    plan = user_dict.get("plan", "free")
+    user_dict["token_limit"] = get_token_limit_for_plan(plan)
+    return UserResponse(**user_dict)
+
+
 # --- Cookie Configuration ---
 
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
@@ -209,7 +228,7 @@ async def verify_email(token: str, response: Response):
     
     return {
         "message": "Email verified successfully",
-        "user": UserResponse(**user.model_dump())
+        "user": create_user_response(user.model_dump())
     }
 
 
@@ -347,7 +366,7 @@ async def login(data: LoginRequest, request: Request, response: Response):
     set_auth_cookies(response, access_token, raw_refresh)
     
     return AuthResponse(
-        user=UserResponse(**user.model_dump()),
+        user=create_user_response(user.model_dump()),
         is_new=False
     )
 
@@ -448,7 +467,7 @@ async def get_me(user: User = Depends(get_current_user)):
     provider_names = [p["provider"] for p in providers]
     
     return {
-        "user": UserResponse(**user.model_dump()),
+        "user": create_user_response(user.model_dump()),
         "providers": provider_names
     }
 
@@ -470,7 +489,7 @@ async def update_me(name: Optional[str] = None, avatar_url: Optional[str] = None
     # Return updated user
     user_doc = db.users.find_one({"id": user.id})
     del user_doc["_id"]
-    return {"user": UserResponse(**user_doc)}
+    return {"user": create_user_response(user_doc)}
 
 
 # --- Sessions ---

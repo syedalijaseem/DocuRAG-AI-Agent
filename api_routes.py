@@ -46,9 +46,9 @@ def get_db():
 # --- Plan Limits ---
 # Resource limits per plan
 PLAN_LIMITS = {
-    "free": {"projects": 1, "chats": 3, "documents": 3, "docs_per_scope": 1},
-    "pro": {"projects": 5, "chats": None, "documents": 25, "docs_per_scope": 5},  # None = unlimited
-    "premium": {"projects": None, "chats": None, "documents": None, "docs_per_scope": 10},
+    "free": {"projects": 1, "chats": 3, "documents": 3, "docs_per_scope": 1, "token_limit": 5000},
+    "pro": {"projects": 5, "chats": None, "documents": 25, "docs_per_scope": 5, "token_limit": 500000},  # None = unlimited
+    "premium": {"projects": None, "chats": None, "documents": None, "docs_per_scope": 10, "token_limit": 2000000},
 }
 
 
