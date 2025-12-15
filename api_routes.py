@@ -687,6 +687,214 @@ async def send_query_event(request: QueryEventRequest, user: User = Depends(get_
     return {"event_ids": ids}
 
 
+# --- Streaming Chat Endpoint ---
+
+from sse_starlette.sse import EventSourceResponse
+import httpx
+import json as json_lib
+import asyncio
+
+# Import history sliding window from main
+def get_recent_history_local(messages: list, max_messages: int = 10, max_tokens: int = 4000) -> list:
+    """Get recent conversation history with sliding window."""
+    if not messages:
+        return []
+    recent = messages[-max_messages:] if len(messages) > max_messages else messages[:]
+    # Estimate tokens
+    text = "".join(m.get("content", "") for m in recent)
+    token_count = len(text) // 4
+    while token_count > max_tokens and len(recent) > 2:
+        recent = recent[2:]
+        text = "".join(m.get("content", "") for m in recent)
+        token_count = len(text) // 4
+    return recent
+
+
+class StreamQueryRequest(BaseModel):
+    question: str
+    history: list = []
+    top_k: int = 10
+    user_id: Optional[str] = None
+
+
+@router.post("/chat/{chat_id}/stream")
+async def stream_query(chat_id: str, request: StreamQueryRequest, user: User = Depends(get_current_user)):
+    """Stream LLM response using Server-Sent Events."""
+    
+    # Check token limit
+    plan = getattr(user, 'plan', 'free') or 'free'
+    token_limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["token_limit"]
+    tokens_used = getattr(user, 'tokens_used', 0) or 0
+    
+    if tokens_used >= token_limit:
+        async def limit_error():
+            yield {
+                "event": "error",
+                "data": json_lib.dumps({"error": "limit_reached", "resource": "tokens", "limit": token_limit, "used": tokens_used})
+            }
+        return EventSourceResponse(limit_error())
+    
+    async def event_generator():
+        try:
+            # Step 1: Emit searching status
+            yield {
+                "event": "status",
+                "data": json_lib.dumps({"stage": "searching", "message": "Searching documents..."})
+            }
+            
+            # Step 2: Get chat and scope info
+            db = get_db()
+            chat = db.chats.find_one({"id": chat_id})
+            if not chat:
+                yield {"event": "error", "data": json_lib.dumps({"error": "Chat not found"})}
+                return
+            
+            # Verify user owns this chat
+            if chat.get("user_id") != user.id:
+                yield {"event": "error", "data": json_lib.dumps({"error": "Access denied"})}
+                return
+            
+            scope_type = "chat"
+            scope_id = chat_id
+            project_id = chat.get("project_id")
+            
+            # Step 3: Embed and search
+            from data_loader import embed_texts
+            from chunk_search import search_for_scope
+            
+            query_vec = embed_texts([request.question])[0]
+            
+            search_result = search_for_scope(
+                query_vec,
+                scope_type=scope_type,
+                scope_id=scope_id,
+                top_k=request.top_k,
+                include_project=True,
+                project_id=project_id
+            )
+            
+            contexts = search_result.get("contexts", [])
+            sources = search_result.get("sources", [])
+            scores = search_result.get("scores", [])
+            
+            # Step 4: Emit sources immediately
+            yield {
+                "event": "sources",
+                "data": json_lib.dumps({
+                    "sources": sources,
+                    "num_contexts": len(contexts),
+                    "scores": scores
+                })
+            }
+            
+            # Handle empty results
+            if not contexts or (scores and all(s < 0.3 for s in scores)):
+                no_answer = "I couldn't find relevant information in your documents to answer this question."
+                yield {
+                    "event": "chunk",
+                    "data": json_lib.dumps({"content": no_answer})
+                }
+                yield {
+                    "event": "done",
+                    "data": json_lib.dumps({"full_response": no_answer, "tokens_used": 0, "sources": []})
+                }
+                return
+            
+            # Step 5: Emit generating status
+            yield {
+                "event": "status", 
+                "data": json_lib.dumps({"stage": "generating", "message": "Generating response..."})
+            }
+            
+            # Step 6: Build prompt
+            context_blocks = []
+            for i, ctx in enumerate(contexts):
+                source = sources[i] if i < len(sources) else "Unknown"
+                score = scores[i] if i < len(scores) else 0.0
+                context_blocks.append(f"---\nSource: {source} (Relevance: {score:.0%})\n{ctx}")
+            context_block = "\n\n".join(context_blocks)
+            
+            system_prompt = """You are a helpful document assistant for Querious. Answer questions based ONLY on the provided context.
+Rules:
+- Only use information from the provided context
+- If the context doesn't contain enough information, say so clearly  
+- Cite sources using [source: filename, page X] format
+- Be concise but thorough"""
+
+            messages = [{"role": "system", "content": system_prompt}]
+            
+            # Apply sliding window to history
+            recent_history = get_recent_history_local(request.history)
+            messages.extend(recent_history)
+            messages.append({
+                "role": "user", 
+                "content": f"Based on the following context:\n\n{context_block}\n\n---\nQuestion: {request.question}\n\nProvide a clear answer. Cite sources when referencing information."
+            })
+            
+            # Step 7: Stream from DeepSeek
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                async with client.stream(
+                    "POST",
+                    "https://api.deepseek.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {os.getenv('DEEPSEEK_API_KEY')}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "deepseek-chat",
+                        "messages": messages,
+                        "stream": True,
+                        "temperature": 0.3,
+                        "max_tokens": 2048,
+                    }
+                ) as response:
+                    full_response = ""
+                    async for line in response.aiter_lines():
+                        if line.startswith("data: "):
+                            data = line[6:]
+                            if data == "[DONE]":
+                                break
+                            try:
+                                chunk = json_lib.loads(data)
+                                content = chunk["choices"][0]["delta"].get("content", "")
+                                if content:
+                                    full_response += content
+                                    yield {
+                                        "event": "chunk",
+                                        "data": json_lib.dumps({"content": content})
+                                    }
+                            except json_lib.JSONDecodeError:
+                                continue
+            
+            # Step 8: Estimate tokens and emit done
+            estimated_tokens = int(len(full_response.split()) * 1.3)
+            
+            yield {
+                "event": "done",
+                "data": json_lib.dumps({
+                    "full_response": full_response,
+                    "tokens_used": estimated_tokens,
+                    "sources": sources
+                })
+            }
+            
+            # Step 9: Update token usage
+            if request.user_id or user.id:
+                uid = request.user_id or user.id
+                db.users.update_one(
+                    {"id": uid},
+                    {"$inc": {"tokens_used": estimated_tokens}}
+                )
+                
+        except Exception as e:
+            yield {
+                "event": "error",
+                "data": json_lib.dumps({"error": str(e)})
+            }
+    
+    return EventSourceResponse(event_generator())
+
+
 # --- Legacy Endpoints (for backward compatibility during migration) ---
 
 # Keep workspace endpoints for existing data

@@ -24,8 +24,9 @@ import {
   getChunkCount,
 } from "../components/QualityPresetSelector";
 import { TokenUsageBar } from "../components/TokenUsageBar";
-import { LoadingStages } from "../components/LoadingStages";
 import { TypewriterMessage } from "../components/TypewriterMessage";
+import { StreamingMessage } from "../components/StreamingMessage";
+import { useStreamingQuery } from "../hooks/useStreamingQuery";
 
 export function ChatViewPage() {
   const { id } = useParams<{ id: string }>();
@@ -48,6 +49,9 @@ export function ChatViewPage() {
   const updateChat = useUpdateChat();
   const { user, addTokensUsed } = useAuth();
 
+  // Streaming query hook
+  const streaming = useStreamingQuery(id || "");
+
   // Get user's subscription tier from their plan
   const userTier = user?.plan || "free";
 
@@ -67,7 +71,7 @@ export function ChatViewPage() {
   }, [messages]);
 
   async function handleSend() {
-    if (!input.trim() || !id || sending) return;
+    if (!input.trim() || !id || sending || streaming.isLoading) return;
 
     // Check token limit before sending
     if (user && user.tokens_used >= user.token_limit) {
@@ -97,56 +101,62 @@ export function ChatViewPage() {
       // Save user message
       await api.saveMessage(id, "user", userMessage);
 
-      // Send query event
-      const scope = chat?.project_id
-        ? { type: "project" as const, id: chat.project_id }
-        : { type: "chat" as const, id };
-
-      const eventIds = await api.sendQueryEvent(
+      // Start streaming query
+      const history = messages
+        .slice(-10)
+        .map((m) => ({ role: m.role, content: m.content }));
+      await streaming.sendMessage(
         userMessage,
-        id,
-        scope.type,
-        scope.id,
-        currentModel,
-        getChunkCount(currentPreset),
-        messages.slice(-10).map((m) => ({ role: m.role, content: m.content }))
+        history,
+        getChunkCount(currentPreset)
       );
-
-      if (eventIds.length > 0) {
-        const result = await api.waitForRunOutput(eventIds[0]);
-        const answer =
-          (result.answer as string) || "I couldn't find an answer.";
-        const sources = (result.sources as string[]) || [];
-        const tokensUsed = (result.tokens_used as number) || 0;
-
-        // Save assistant message
-        await api.saveMessage(id, "assistant", answer, sources);
-
-        // Refetch messages
-        queryClient.invalidateQueries({ queryKey: chatKeys.messages(id) });
-
-        // Update token count locally (no extra API call)
-        if (tokensUsed > 0) {
-          addTokensUsed(tokensUsed);
-        }
-      }
     } catch (error: unknown) {
       console.error("Query failed:", error);
-      // Check if it's a token limit error
-      if (
-        error &&
-        typeof error === "object" &&
-        "status" in error &&
-        (error as { status: number }).status === 403
-      ) {
-        setShowLimitModal(true);
-      } else {
-        alert("Failed to get response");
-      }
+      alert("Failed to send message");
     } finally {
       setSending(false);
     }
   }
+
+  // Handle streaming completion - save assistant message
+  useEffect(() => {
+    if (streaming.stage === "done" && streaming.content && id) {
+      // Save assistant message
+      api
+        .saveMessage(id, "assistant", streaming.content, streaming.sources)
+        .then(() => {
+          // Refresh messages
+          queryClient.invalidateQueries({ queryKey: chatKeys.messages(id) });
+        })
+        .catch(console.error);
+
+      // Update token count
+      if (streaming.tokensUsed > 0) {
+        addTokensUsed(streaming.tokensUsed);
+      }
+
+      // Reset streaming state
+      streaming.reset();
+    }
+
+    // Handle token limit error
+    if (
+      streaming.stage === "error" &&
+      streaming.error?.includes("limit_reached")
+    ) {
+      setShowLimitModal(true);
+      streaming.reset();
+    }
+  }, [
+    streaming.stage,
+    streaming.content,
+    streaming.tokensUsed,
+    streaming.error,
+    id,
+    queryClient,
+    addTokensUsed,
+    streaming,
+  ]);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -286,10 +296,14 @@ export function ChatViewPage() {
               })
             )}
 
-            {sending && (
-              <div className="max-w-[85%] p-4 rounded-2xl mr-auto bg-[#f8f8f8] dark:bg-[#242424] border border-[#e8e8e8] dark:border-[#3a3a3a]">
-                <LoadingStages />
-              </div>
+            {/* Streaming response */}
+            {streaming.isLoading && (
+              <StreamingMessage
+                stage={streaming.stage}
+                content={streaming.content}
+                sources={streaming.sources}
+                error={streaming.error}
+              />
             )}
 
             <div ref={messagesEndRef} />
