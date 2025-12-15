@@ -650,6 +650,15 @@ async def send_ingest_event(request: IngestEventRequest):
 @router.post("/events/query")
 async def send_query_event(request: QueryEventRequest, user: User = Depends(get_current_user)):
     """Send a query event to Inngest."""
+    # Check token limit
+    tokens_used = getattr(user, 'tokens_used', 0) or 0
+    token_limit = getattr(user, 'token_limit', 5000) or 5000
+    if tokens_used >= token_limit:
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "limit_reached", "resource": "tokens", "limit": token_limit, "used": tokens_used}
+        )
+    
     # Validate model enum
     try:
         AIModel(request.model)

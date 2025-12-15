@@ -118,9 +118,19 @@ export function ChatViewPage() {
         // Refetch messages
         queryClient.invalidateQueries({ queryKey: chatKeys.messages(id) });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Query failed:", error);
-      alert("Failed to get response");
+      // Check if it's a token limit error
+      if (
+        error &&
+        typeof error === "object" &&
+        "status" in error &&
+        (error as { status: number }).status === 403
+      ) {
+        setShowLimitModal(true);
+      } else {
+        alert("Failed to get response");
+      }
     } finally {
       setSending(false);
     }
