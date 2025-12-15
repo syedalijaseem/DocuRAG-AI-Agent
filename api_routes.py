@@ -648,7 +648,7 @@ async def send_ingest_event(request: IngestEventRequest):
 
 
 @router.post("/events/query")
-async def send_query_event(request: QueryEventRequest):
+async def send_query_event(request: QueryEventRequest, user: User = Depends(get_current_user)):
     """Send a query event to Inngest."""
     # Validate model enum
     try:
@@ -668,6 +668,7 @@ async def send_query_event(request: QueryEventRequest):
             "model": request.model,
             "top_k": request.top_k,
             "history": request.history,
+            "user_id": user.id,  # For token tracking
         }
     )
     

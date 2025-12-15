@@ -434,6 +434,7 @@ class QueryPdfEventData(BaseModel):
     scope_id: str  # For project chats, this is project_id
     top_k: int = Field(default=5, ge=1, le=50)
     history: list[dict] = Field(default_factory=list)
+    user_id: Optional[str] = None  # For token usage tracking
     
     @field_validator('question')
     @classmethod
@@ -479,6 +480,7 @@ class QueryResult(BaseModel):
     num_contexts: int = Field(ge=0)
     history: list[dict] = Field(default_factory=list)
     avg_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    tokens_used: int = Field(default=0, ge=0)  # Tokens used in this query
 
 
 # --- Backward Compatibility Aliases ---

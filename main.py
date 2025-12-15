@@ -254,6 +254,25 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     )
 
     answer = res["choices"][0]["message"]["content"].strip()
+    
+    # Track token usage
+    usage = res.get("usage", {})
+    total_tokens = usage.get("total_tokens", 0)
+    
+    if event_data.user_id and total_tokens > 0:
+        def _update_tokens():
+            from pymongo import MongoClient
+            import os
+            client = MongoClient(os.getenv("MONGODB_URI"))
+            db_name = os.getenv("MONGODB_DATABASE", "docurag")
+            db = client[db_name]
+            db.users.update_one(
+                {"id": event_data.user_id},
+                {"$inc": {"tokens_used": total_tokens}}
+            )
+            print(f"[QUERY] Updated tokens_used for user {event_data.user_id}: +{total_tokens}")
+        
+        await ctx.step.run("update-token-usage", _update_tokens)
 
     # Update history
     history = list(event_data.history)
@@ -268,7 +287,8 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
         sources=sources,
         num_contexts=len(contexts),
         history=history,
-        avg_confidence=avg_conf
+        avg_confidence=avg_conf,
+        tokens_used=total_tokens
     ).model_dump()
 
 
