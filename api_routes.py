@@ -46,9 +46,9 @@ def get_db():
 # --- Plan Limits ---
 # Resource limits per plan
 PLAN_LIMITS = {
-    "free": {"projects": 1, "chats": 3, "documents": 3},
-    "pro": {"projects": 5, "chats": None, "documents": 25},  # None = unlimited
-    "premium": {"projects": None, "chats": None, "documents": None},
+    "free": {"projects": 1, "chats": 3, "documents": 3, "docs_per_scope": 1},
+    "pro": {"projects": 5, "chats": None, "documents": 25, "docs_per_scope": 5},  # None = unlimited
+    "premium": {"projects": None, "chats": None, "documents": None, "docs_per_scope": 10},
 }
 
 
@@ -407,7 +407,7 @@ def validate_pdf_content(content: bytes) -> bool:
 
 
 @router.get("/upload-limits")
-def get_upload_limits(scope_type: str, scope_id: str):
+def get_upload_limits(scope_type: str, scope_id: str, user: User = Depends(get_current_user)):
     """Get upload limits and current usage for a scope.
     
     Returns max files, max total size, and current usage.
@@ -420,6 +420,10 @@ def get_upload_limits(scope_type: str, scope_id: str):
         raise HTTPException(status_code=400, detail="scope_type must be 'chat' or 'project'")
     
     db = get_db()
+    
+    # Get plan-based document limit per scope
+    plan = user.plan or "free"
+    max_docs_per_scope = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["docs_per_scope"]
     
     # Get current usage
     scope_docs = list(db.document_scopes.aggregate([
@@ -442,12 +446,12 @@ def get_upload_limits(scope_type: str, scope_id: str):
     current_size = scope_docs[0]["total_size"] if scope_docs else 0
     
     return {
-        "max_files": MAX_PDFS_PER_SCOPE,
+        "max_files": max_docs_per_scope,
         "max_file_size": MAX_FILE_SIZE,
         "max_total_size": MAX_TOTAL_SIZE_PER_SCOPE,
         "current_count": current_count,
         "current_size": current_size,
-        "remaining_count": MAX_PDFS_PER_SCOPE - current_count,
+        "remaining_count": max_docs_per_scope - current_count,
         "remaining_size": MAX_TOTAL_SIZE_PER_SCOPE - current_size
     }
 
@@ -457,7 +461,8 @@ async def upload_document(
     request: Request,
     scope_type: str,
     scope_id: str,
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user)
 ):
     """Upload a PDF document to a scope (chat or project).
     
@@ -470,14 +475,20 @@ async def upload_document(
     except ValueError:
         raise HTTPException(status_code=400, detail="scope_type must be 'chat' or 'project'")
     
-    # Validate scope exists (security: prevent orphaned documents)
+    # Validate scope exists and user owns it
     db = get_db()
     if scope_type == "chat":
-        if not db.chats.find_one({"id": scope_id}):
+        chat = db.chats.find_one({"id": scope_id, "user_id": user.id})
+        if not chat:
             raise HTTPException(status_code=404, detail="Chat not found")
     elif scope_type == "project":
-        if not db.projects.find_one({"id": scope_id}):
+        project = db.projects.find_one({"id": scope_id, "user_id": user.id})
+        if not project:
             raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Get plan-based document limit per scope
+    plan = user.plan or "free"
+    max_docs_per_scope = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["docs_per_scope"]
     
     # Check scope limits (count and total size)
     scope_docs = list(db.document_scopes.aggregate([
@@ -499,10 +510,10 @@ async def upload_document(
     current_count = scope_docs[0]["count"] if scope_docs else 0
     current_size = scope_docs[0]["total_size"] if scope_docs else 0
     
-    if current_count >= MAX_PDFS_PER_SCOPE:
+    if current_count >= max_docs_per_scope:
         raise HTTPException(
-            status_code=400, 
-            detail=f"Maximum {MAX_PDFS_PER_SCOPE} PDFs allowed per {scope_type}"
+            status_code=403, 
+            detail={"error": "limit_reached", "resource": "documents", "limit": max_docs_per_scope}
         )
     
     # Check file extension

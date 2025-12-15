@@ -142,9 +142,14 @@ export function ChatViewPage() {
             scopeId: id,
             file,
           })
-          .catch((error) => {
+          .catch((error: Error & { status?: number }) => {
             console.error(`Upload failed for ${file.name}:`, error);
-            return { error: true, filename: file.name, message: error.message };
+            return {
+              error: true,
+              filename: file.name,
+              message: error.message,
+              status: error.status,
+            };
           })
       );
 
@@ -152,13 +157,25 @@ export function ChatViewPage() {
 
       // Check for any errors
       const errors = results.filter(
-        (r): r is { error: boolean; filename: string; message: string } =>
-          r && typeof r === "object" && "error" in r
+        (
+          r
+        ): r is {
+          error: boolean;
+          filename: string;
+          message: string;
+          status?: number;
+        } => r && typeof r === "object" && "error" in r
       );
 
       if (errors.length > 0) {
-        const errorNames = errors.map((e) => e.filename).join(", ");
-        alert(`Some uploads failed: ${errorNames}\n${errors[0].message}`);
+        // Check if it's a limit error (403)
+        const limitError = errors.find((e) => e.status === 403);
+        if (limitError) {
+          setShowLimitModal(true);
+        } else {
+          const errorNames = errors.map((e) => e.filename).join(", ");
+          alert(`Some uploads failed: ${errorNames}\n${errors[0].message}`);
+        }
       }
     } catch (error) {
       console.error("Upload failed:", error);
