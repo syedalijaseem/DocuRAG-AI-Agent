@@ -3,7 +3,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../api";
-import type { Chat } from "../types";
+import type { Chat, AIModel, QualityPreset } from "../types";
 
 export const chatKeys = {
   all: ["chats"] as const,
@@ -87,7 +87,12 @@ export function useUpdateChat() {
       updates,
     }: {
       id: string;
-      updates: { title?: string; is_pinned?: boolean };
+      updates: {
+        title?: string;
+        is_pinned?: boolean;
+        model?: AIModel;
+        quality_preset?: QualityPreset;
+      };
     }) => api.updateChat(id, updates),
     onSuccess: (updatedChat) => {
       queryClient.setQueryData<Chat>(

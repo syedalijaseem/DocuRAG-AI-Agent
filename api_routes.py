@@ -6,7 +6,7 @@ These endpoints are used by the React frontend to:
 - Upload/list scoped documents
 - Send queries (via Inngest events)
 """
-from fastapi import APIRouter, HTTPException, UploadFile, File, Request
+from fastapi import APIRouter, HTTPException, UploadFile, File, Request, Depends
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone
@@ -24,8 +24,11 @@ from models import (
     Message,
     MessageRole,
     ScopeType,
+    AIModel,
+    User,
     generate_id,
 )
+from auth_routes import get_current_user
 
 # Router for API endpoints
 router = APIRouter(prefix="/api", tags=["api"])
@@ -40,6 +43,15 @@ def get_db():
     return client[db_name]
 
 
+# --- Plan Limits ---
+# Resource limits per plan
+PLAN_LIMITS = {
+    "free": {"projects": 1, "chats": 3, "documents": 3},
+    "pro": {"projects": 5, "chats": None, "documents": 25},  # None = unlimited
+    "premium": {"projects": None, "chats": None, "documents": None},
+}
+
+
 # --- Request Models ---
 
 class CreateProjectRequest(BaseModel):
@@ -52,6 +64,8 @@ class CreateChatRequest(BaseModel):
 class UpdateChatRequest(BaseModel):
     title: Optional[str] = None
     is_pinned: Optional[bool] = None
+    model: Optional[str] = None  # AI model selection
+    quality_preset: Optional[str] = None  # quick, standard, thorough, deep, max
 
 class SaveMessageRequest(BaseModel):
     chat_id: str
@@ -63,35 +77,53 @@ class SaveMessageRequest(BaseModel):
 # --- Project Endpoints ---
 
 @router.post("/projects")
-def create_project(request: CreateProjectRequest):
-    """Create a new project."""
+async def create_project(request: CreateProjectRequest, user: User = Depends(get_current_user)):
+    """Create a new project for the current user."""
     db = get_db()
-    project = Project(name=request.name)
+    
+    # Check project limit for user's plan
+    plan = user.plan or "free"
+    limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["projects"]
+    if limit is not None:
+        current_count = db.projects.count_documents({"user_id": user.id})
+        if current_count >= limit:
+            raise HTTPException(
+                status_code=403, 
+                detail={"error": "limit_reached", "resource": "projects", "limit": limit}
+            )
+    
+    project = Project(user_id=user.id, name=request.name)
     db.projects.insert_one(project.model_dump())
     return project.model_dump()
 
 @router.get("/projects")
-def list_projects():
-    """List all projects."""
+async def list_projects(user: User = Depends(get_current_user)):
+    """List all projects for the current user."""
     db = get_db()
-    projects = list(db.projects.find({}, {"_id": 0}))
+    projects = list(db.projects.find({"user_id": user.id}, {"_id": 0}))
     return projects
 
 @router.get("/projects/{project_id}")
-def get_project(project_id: str):
-    """Get a specific project."""
+async def get_project(project_id: str, user: User = Depends(get_current_user)):
+    """Get a specific project owned by the current user."""
     db = get_db()
-    project = db.projects.find_one({"id": project_id}, {"_id": 0})
+    project = db.projects.find_one({"id": project_id, "user_id": user.id}, {"_id": 0})
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
 @router.delete("/projects/{project_id}")
-def delete_project(project_id: str):
-    """Delete a project and all its chats/documents from DB, S3, and vector store."""
+async def delete_project(project_id: str, user: User = Depends(get_current_user)):
+    """Delete a project owned by the current user."""
     from vector_db import MongoDBStorage
     
     db = get_db()
+    
+    # Verify user owns the project
+    project = db.projects.find_one({"id": project_id, "user_id": user.id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
     vector_store = MongoDBStorage()
     
     # Get project documents for S3 cleanup
@@ -138,10 +170,29 @@ def delete_project(project_id: str):
 # --- Chat Endpoints ---
 
 @router.post("/chats")
-def create_chat(request: CreateChatRequest):
-    """Create a new chat (standalone or within a project)."""
+async def create_chat(request: CreateChatRequest, user: User = Depends(get_current_user)):
+    """Create a new chat for the current user."""
     db = get_db()
+    
+    # Check chat limit for user's plan
+    plan = user.plan or "free"
+    limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["chats"]
+    if limit is not None:
+        current_count = db.chats.count_documents({"user_id": user.id})
+        if current_count >= limit:
+            raise HTTPException(
+                status_code=403, 
+                detail={"error": "limit_reached", "resource": "chats", "limit": limit}
+            )
+    
+    # If project_id provided, verify user owns the project
+    if request.project_id:
+        project = db.projects.find_one({"id": request.project_id, "user_id": user.id})
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+    
     chat = Chat(
+        user_id=user.id,
         project_id=request.project_id,
         title=request.title
     )
@@ -149,47 +200,76 @@ def create_chat(request: CreateChatRequest):
     return chat.model_dump()
 
 @router.get("/chats")
-def list_chats(project_id: Optional[str] = None, standalone: bool = False):
-    """List chats. Filter by project_id or get standalone chats."""
+async def list_chats(user: User = Depends(get_current_user), project_id: Optional[str] = None, standalone: bool = False):
+    """List chats for the current user. Filter by project_id or get standalone chats."""
     db = get_db()
+    query = {"user_id": user.id}
+    
     if standalone:
-        chats = list(db.chats.find({"project_id": None}, {"_id": 0}))
+        query["project_id"] = None
     elif project_id:
-        chats = list(db.chats.find({"project_id": project_id}, {"_id": 0}))
-    else:
-        chats = list(db.chats.find({}, {"_id": 0}))
+        query["project_id"] = project_id
+    
+    chats = list(db.chats.find(query, {"_id": 0}))
     return chats
 
 @router.get("/chats/{chat_id}")
-def get_chat(chat_id: str):
-    """Get a specific chat."""
+async def get_chat(chat_id: str, user: User = Depends(get_current_user)):
+    """Get a specific chat owned by the current user."""
     db = get_db()
-    chat = db.chats.find_one({"id": chat_id}, {"_id": 0})
+    chat = db.chats.find_one({"id": chat_id, "user_id": user.id}, {"_id": 0})
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
     return chat
 
 @router.patch("/chats/{chat_id}")
-def update_chat(chat_id: str, request: UpdateChatRequest):
-    """Update chat title or pinned status."""
+async def update_chat(chat_id: str, request: UpdateChatRequest, user: User = Depends(get_current_user)):
+    """Update chat title, pinned status, model, or quality preset."""
     db = get_db()
+    
+    # Verify user owns the chat
+    chat = db.chats.find_one({"id": chat_id, "user_id": user.id})
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
     updates = {}
     if request.title is not None:
         updates["title"] = request.title
     if request.is_pinned is not None:
         updates["is_pinned"] = request.is_pinned
+    if request.model is not None:
+        # Validate model enum
+        try:
+            AIModel(request.model)
+            updates["model"] = request.model
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid model: {request.model}")
+    if request.quality_preset is not None:
+        # Validate preset
+        valid_presets = ["quick", "standard", "thorough", "deep", "max"]
+        if request.quality_preset not in valid_presets:
+            raise HTTPException(status_code=400, detail=f"Invalid preset: {request.quality_preset}")
+        updates["quality_preset"] = request.quality_preset
     
     if updates:
         db.chats.update_one({"id": chat_id}, {"$set": updates})
     
-    return get_chat(chat_id)
+    # Return updated chat
+    updated_chat = db.chats.find_one({"id": chat_id}, {"_id": 0})
+    return updated_chat
 
 @router.delete("/chats/{chat_id}")
-def delete_chat(chat_id: str):
-    """Delete a chat and its messages/documents from DB, S3, and vector store."""
+async def delete_chat(chat_id: str, user: User = Depends(get_current_user)):
+    """Delete a chat owned by the current user."""
     from vector_db import MongoDBStorage
     
     db = get_db()
+    
+    # Verify user owns the chat
+    chat = db.chats.find_one({"id": chat_id, "user_id": user.id})
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
     vector_store = MongoDBStorage()
     
     # Get chat documents for S3 cleanup
@@ -531,6 +611,7 @@ class QueryEventRequest(BaseModel):
     chat_id: str
     scope_type: str
     scope_id: str
+    model: str = "deepseek"  # AI model to use
     top_k: int = 5
     history: list[dict] = []
 
@@ -558,6 +639,12 @@ async def send_ingest_event(request: IngestEventRequest):
 @router.post("/events/query")
 async def send_query_event(request: QueryEventRequest):
     """Send a query event to Inngest."""
+    # Validate model enum
+    try:
+        AIModel(request.model)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid model: {request.model}")
+    
     client = get_inngest_client()
     
     event = inngest.Event(
@@ -567,6 +654,7 @@ async def send_query_event(request: QueryEventRequest):
             "chat_id": request.chat_id,
             "scope_type": request.scope_type,
             "scope_id": request.scope_id,
+            "model": request.model,
             "top_k": request.top_k,
             "history": request.history,
         }

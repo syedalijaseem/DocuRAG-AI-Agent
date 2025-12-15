@@ -5,20 +5,37 @@
 // Scope types for document ownership
 export type ScopeType = "chat" | "project";
 
+// AI model types (Free, Pro, Premium tiers)
+export type AIModel =
+  | "deepseek-v3" // Free
+  | "gemini-2.5-pro" // Pro
+  | "gpt-4o" // Pro
+  | "claude-opus-4" // Pro
+  | "gemini-3-pro" // Premium
+  | "claude-thinking" // Premium
+  | "gpt-5.1-high"; // Premium
+
 export interface Project {
   id: string;
+  user_id: string;
   name: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
+
+// Quality preset type
+export type QualityPreset = "quick" | "standard" | "thorough" | "deep" | "max";
 
 export interface Chat {
   id: string;
+  user_id: string;
   project_id: string | null; // null = standalone chat
   title: string;
   is_pinned: boolean;
+  model: AIModel;
+  quality_preset: QualityPreset;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 // Document type matching backend M1 model
@@ -73,6 +90,9 @@ export interface ChatSession {
 
 // --- Auth Types ---
 
+// Subscription plan type
+export type SubscriptionPlan = "free" | "pro" | "premium";
+
 export interface User {
   id: string;
   email: string;
@@ -81,6 +101,9 @@ export interface User {
   email_verified: boolean;
   created_at: string;
   last_login: string | null;
+  plan: SubscriptionPlan;
+  tokens_used: number;
+  token_limit: number;
 }
 
 export interface AuthResponse {

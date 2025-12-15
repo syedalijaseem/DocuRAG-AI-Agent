@@ -22,6 +22,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { LoadingSpinner } from "./components/LoadingSpinner";
+import { ToastProvider } from "./components/Toast";
 
 // Query client for TanStack Query
 const queryClient = new QueryClient({
@@ -171,7 +172,9 @@ export default function App() {
         <ThemeProvider>
           <AuthProvider>
             <UIProvider>
-              <AppRoutes />
+              <ToastProvider>
+                <AppRoutes />
+              </ToastProvider>
             </UIProvider>
           </AuthProvider>
         </ThemeProvider>

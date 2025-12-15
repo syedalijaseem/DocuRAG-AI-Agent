@@ -8,6 +8,7 @@ import type {
   Message,
   UploadResponse,
   ScopeType,
+  AIModel,
 } from "./types";
 
 const API_BASE = "/api"; // Relative URL - proxied by Vite in dev, same-origin in prod
@@ -29,10 +30,16 @@ async function fetchApi<T>(
   });
 
   if (!response.ok) {
-    const error = await response
+    const errorBody = await response
       .json()
       .catch(() => ({ detail: "Unknown error" }));
-    throw new Error(error.detail || `HTTP ${response.status}`);
+    // Create an error with status property for limit detection
+    const error = new Error(
+      errorBody.detail || `HTTP ${response.status}`
+    ) as Error & { status: number; body: unknown };
+    error.status = response.status;
+    error.body = errorBody;
+    throw error;
   }
 
   return response.json();
@@ -90,7 +97,7 @@ export async function getChat(chatId: string): Promise<Chat> {
 
 export async function updateChat(
   chatId: string,
-  updates: { title?: string; is_pinned?: boolean }
+  updates: { title?: string; is_pinned?: boolean; model?: AIModel }
 ): Promise<Chat> {
   return fetchApi(`/chats/${chatId}`, {
     method: "PATCH",
@@ -208,6 +215,7 @@ export async function sendQueryEvent(
   chatId: string,
   scopeType: ScopeType,
   scopeId: string,
+  model: AIModel = "deepseek-v3",
   topK: number = 5,
   history: Array<{ role: string; content: string }> = []
 ): Promise<string[]> {
@@ -218,6 +226,7 @@ export async function sendQueryEvent(
       chat_id: chatId,
       scope_type: scopeType,
       scope_id: scopeId,
+      model,
       top_k: topK,
       history,
     }),

@@ -56,6 +56,27 @@ class UserStatus(str, Enum):
     DELETED = "deleted"    # Soft deleted
 
 
+class AIModel(str, Enum):
+    """Available AI models for chat."""
+    # Free tier
+    DEEPSEEK_V3 = "deepseek-v3"              # Free - DeepSeek V3.2
+    # Pro tier
+    GEMINI_25_PRO = "gemini-2.5-pro"         # Pro - Gemini 2.5 Pro
+    GPT_4O = "gpt-4o"                        # Pro - GPT-4o
+    CLAUDE_OPUS_4 = "claude-opus-4"          # Pro - Claude Opus 4.5
+    # Premium tier
+    GEMINI_3_PRO = "gemini-3-pro"            # Premium - Gemini 3 Pro
+    CLAUDE_THINKING = "claude-thinking"      # Premium - Claude Opus 4.5 Thinking 32k
+    GPT_51_HIGH = "gpt-5.1-high"             # Premium - GPT-5.1 High
+
+
+class SubscriptionPlan(str, Enum):
+    """User subscription plans."""
+    FREE = "free"        # Free tier - DeepSeek only
+    PRO = "pro"          # Pro tier - includes Gemini 2.5, GPT-4o, Claude Opus 4
+    PREMIUM = "premium"  # Premium tier - includes all models
+
+
 # --- Authentication Entities ---
 
 class User(BaseModel):
@@ -74,6 +95,9 @@ class User(BaseModel):
     locked_until: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_login: Optional[datetime] = None
+    plan: SubscriptionPlan = SubscriptionPlan.FREE  # User's subscription plan
+    tokens_used: int = 0  # Cumulative tokens used
+    token_limit: int = 5000  # Token limit based on plan (FREE=5000, PRO=500000, PREMIUM=2000000)
     
     @field_validator('email')
     @classmethod
@@ -223,6 +247,9 @@ class UserResponse(BaseModel):
     email_verified: bool
     created_at: datetime
     last_login: Optional[datetime] = None
+    plan: SubscriptionPlan = SubscriptionPlan.FREE
+    tokens_used: int = 0
+    token_limit: int = 5000
 
 
 class AuthResponse(BaseModel):
@@ -245,6 +272,7 @@ class SessionInfo(BaseModel):
 class Project(BaseModel):
     """A project containing documents and chats."""
     id: str = Field(default_factory=lambda: generate_id("proj_"))
+    user_id: str  # Owner user ID - required
     name: str = "New Project"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -252,9 +280,12 @@ class Project(BaseModel):
 class Chat(BaseModel):
     """A chat session, either standalone or within a project."""
     id: str = Field(default_factory=lambda: generate_id("chat_"))
+    user_id: str  # Owner user ID - required
     project_id: Optional[str] = None  # None = standalone chat
     title: str = "New Chat"
     is_pinned: bool = False
+    model: AIModel = AIModel.DEEPSEEK_V3  # Selected AI model
+    quality_preset: str = "standard"  # quick, standard, thorough, deep, max
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
