@@ -14,11 +14,13 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { UIProvider } from "./context/UIContext";
 
 import { MainLayout } from "./layouts/MainLayout";
+import { LandingPage } from "./pages/LandingPage";
 import { ChatsPage } from "./pages/ChatsPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
 import { ChatViewPage } from "./pages/ChatViewPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { UpgradePage } from "./pages/UpgradePage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { LoadingSpinner } from "./components/LoadingSpinner";
@@ -43,18 +45,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
 }
 
-// Auth route wrapper with navigation
-function AuthRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+// Public-only route - redirects to /home if already logged in
+function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingSpinner fullScreen />;
+  }
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   return <>{children}</>;
@@ -68,7 +74,7 @@ function LoginRoute() {
     <LoginPage
       onSwitchToRegister={() => navigate("/register")}
       onForgotPassword={() => alert("Password reset coming soon")}
-      onSuccess={() => navigate("/")}
+      onSuccess={() => navigate("/home")}
     />
   );
 }
@@ -80,7 +86,7 @@ function RegisterRoute() {
   return (
     <RegisterPage
       onSwitchToLogin={() => navigate("/login")}
-      onSuccess={() => navigate("/")}
+      onSuccess={() => navigate("/home")}
     />
   );
 }
@@ -93,28 +99,46 @@ function AppRoutes() {
       <Route
         path="/login"
         element={
-          <AuthRoute>
+          <PublicOnlyRoute>
             <LoginRoute />
-          </AuthRoute>
+          </PublicOnlyRoute>
         }
       />
       <Route
         path="/register"
         element={
-          <AuthRoute>
+          <PublicOnlyRoute>
             <RegisterRoute />
-          </AuthRoute>
+          </PublicOnlyRoute>
+        }
+      />
+
+      {/* Public landing page - redirects to /home if logged in */}
+      <Route
+        path="/"
+        element={
+          <PublicOnlyRoute>
+            <LandingPage />
+          </PublicOnlyRoute>
         }
       />
 
       {/* Protected routes */}
       <Route
-        path="/"
+        path="/home"
         element={
           <ProtectedRoute>
             <MainLayout>
               <ChatsPage />
             </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/upgrade"
+        element={
+          <ProtectedRoute>
+            <UpgradePage />
           </ProtectedRoute>
         }
       />

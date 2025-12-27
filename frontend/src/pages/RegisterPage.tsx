@@ -3,6 +3,7 @@
  */
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
+import logo from "../assets/logo.png";
 
 interface RegisterPageProps {
   onSwitchToLogin: () => void;
@@ -110,7 +111,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
         {/* Logo/Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#0d9488] to-[#0f766e] mb-4">
-            <span className="text-2xl">📄</span>
+            <img src={logo} alt="Querious" className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-semibold text-[#1a1a1a] dark:text-[#ececec]">
             Create an account
